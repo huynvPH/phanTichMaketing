@@ -58,32 +58,50 @@ function saveConfig(config) {
   }
 }
 
+// Helper: Đọc client keys gửi từ trình duyệt (cho Vercel / serverless)
+function getClientKeys(req) {
+  if (req.headers['x-client-keys']) {
+    try {
+      return JSON.parse(decodeURIComponent(req.headers['x-client-keys']));
+    } catch {}
+  }
+  return {};
+}
+
 // 1. API: Lấy trạng thái cấu hình
 app.get('/api/config', (req, res) => {
   const cfg = loadConfig();
+  const ck = getClientKeys(req);
+  const geminiKey = ck.geminiApiKey || cfg.geminiApiKey;
+  const openaiKey = ck.openaiApiKey || cfg.openaiApiKey;
+  const claudeKey = ck.anthropicApiKey || cfg.anthropicApiKey;
+  const openrouterKey = ck.openrouterApiKey || cfg.openrouterApiKey;
+  const nineRouterKey = ck.nineRouterApiKey || cfg.nineRouterApiKey;
+  const notionToken = ck.notionToken || cfg.notionToken;
+
   res.json({
-    hasOpenAI: Boolean(cfg.openaiApiKey),
-    hasClaude: Boolean(cfg.anthropicApiKey),
-    hasGemini: Boolean(cfg.geminiApiKey),
-    hasOpenRouter: Boolean(cfg.openrouterApiKey),
-    hasNineRouter: Boolean(cfg.nineRouterApiKey),
+    hasOpenAI: Boolean(openaiKey),
+    hasClaude: Boolean(claudeKey),
+    hasGemini: Boolean(geminiKey),
+    hasOpenRouter: Boolean(openrouterKey),
+    hasNineRouter: Boolean(nineRouterKey),
     hasLocal: Boolean(cfg.localBaseUrl),
-    hasNotion: Boolean(cfg.notionToken),
-    maskedOpenAI: cfg.openaiApiKey ? `${cfg.openaiApiKey.slice(0, 4)}...${cfg.openaiApiKey.slice(-4)}` : '',
-    maskedClaude: cfg.anthropicApiKey ? `${cfg.anthropicApiKey.slice(0, 4)}...${cfg.anthropicApiKey.slice(-4)}` : '',
-    maskedGemini: cfg.geminiApiKey ? `${cfg.geminiApiKey.slice(0, 4)}...${cfg.geminiApiKey.slice(-4)}` : '',
-    maskedOpenRouter: cfg.openrouterApiKey ? `${cfg.openrouterApiKey.slice(0, 7)}...${cfg.openrouterApiKey.slice(-4)}` : '',
-    openrouterModel: cfg.openrouterModel || 'deepseek/deepseek-chat',
-    maskedNineRouter: cfg.nineRouterApiKey ? `${cfg.nineRouterApiKey.slice(0, 7)}...${cfg.nineRouterApiKey.slice(-4)}` : '',
-    nineRouterBaseUrl: cfg.nineRouterBaseUrl || 'http://localhost:20128/v1',
-    nineRouterModel: cfg.nineRouterModel || 'ag/claude-sonnet-4-6',
+    hasNotion: Boolean(notionToken),
+    maskedOpenAI: openaiKey ? `${openaiKey.slice(0, 4)}...${openaiKey.slice(-4)}` : '',
+    maskedClaude: claudeKey ? `${claudeKey.slice(0, 4)}...${claudeKey.slice(-4)}` : '',
+    maskedGemini: geminiKey ? `${geminiKey.slice(0, 4)}...${geminiKey.slice(-4)}` : '',
+    maskedOpenRouter: openrouterKey ? `${openrouterKey.slice(0, 7)}...${openrouterKey.slice(-4)}` : '',
+    openrouterModel: cfg.openrouterModel || 'Gemini 3.6 Flash',
+    maskedNineRouter: nineRouterKey ? `${nineRouterKey.slice(0, 7)}...${nineRouterKey.slice(-4)}` : '',
+    nineRouterBaseUrl: ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1',
+    nineRouterModel: ck.nineRouterModel || cfg.nineRouterModel || 'ag/claude-sonnet-4-6',
     localBaseUrl: cfg.localBaseUrl || 'http://localhost:20128/v1',
     localModel: cfg.localModel || 'ag/claude-sonnet-4-6',
-    maskedNotion: cfg.notionToken ? `${cfg.notionToken.slice(0, 7)}...${cfg.notionToken.slice(-4)}` : '',
-    notionParentId: cfg.notionParentId || '',
-    notionParentType: cfg.notionParentType || 'page',
-    defaultProvider: cfg.defaultProvider || '9router',
-    defaultModel: cfg.defaultModel || 'ag/claude-sonnet-4-6',
+    maskedNotion: notionToken ? `${notionToken.slice(0, 7)}...${notionToken.slice(-4)}` : '',
+    notionParentId: ck.notionParentId || cfg.notionParentId || '',
+    notionParentType: ck.notionParentType || cfg.notionParentType || 'page',
+    defaultProvider: cfg.defaultProvider || 'gemini',
+    defaultModel: cfg.defaultModel || 'gemini-2.5-flash',
   });
 });
 
@@ -174,10 +192,12 @@ app.post('/api/test-connection', async (req, res) => {
 // 4. API: Lấy danh sách Pages/Databases từ Notion để người dùng chọn
 app.get('/api/notion/targets', async (req, res) => {
   const cfg = loadConfig();
-  if (!cfg.notionToken) {
+  const ck = getClientKeys(req);
+  const token = req.query.token || ck.notionToken || cfg.notionToken;
+  if (!token) {
     return res.status(400).json({ success: false, message: 'Chưa cấu hình Notion Token' });
   }
-  const result = await listNotionTargets(cfg.notionToken);
+  const result = await listNotionTargets(token);
   res.json(result);
 });
 
@@ -194,6 +214,7 @@ app.post('/api/ai/analyze', async (req, res) => {
     } = req.body;
 
     const cfg = loadConfig();
+    const ck = getClientKeys(req);
     let activeProvider = provider;
     if (!activeProvider) {
       if (model?.startsWith('gemini')) activeProvider = 'gemini';
@@ -203,22 +224,24 @@ app.post('/api/ai/analyze', async (req, res) => {
         else activeProvider = 'claude';
       }
       else if (model === 'local-model') activeProvider = 'local';
-      else activeProvider = cfg.defaultProvider || '9router';
+      else activeProvider = cfg.defaultProvider || 'gemini';
     }
-    let apiKey = '';
-    let targetBaseUrl = undefined;
+    let apiKey = req.body.apiKey || '';
+    let targetBaseUrl = req.body.customBaseUrl;
 
-    if (activeProvider === 'openai') apiKey = cfg.openaiApiKey;
-    else if (activeProvider === 'claude') apiKey = cfg.anthropicApiKey;
-    else if (activeProvider === 'gemini') apiKey = cfg.geminiApiKey;
-    else if (activeProvider === 'openrouter') apiKey = cfg.openrouterApiKey;
-    else if (activeProvider === '9router') {
-      apiKey = cfg.nineRouterApiKey || '';
-      targetBaseUrl = cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
-    }
-    else if (activeProvider === 'local') {
-      apiKey = 'local';
-      targetBaseUrl = cfg.localBaseUrl;
+    if (!apiKey) {
+      if (activeProvider === 'openai') apiKey = ck.openaiApiKey || cfg.openaiApiKey;
+      else if (activeProvider === 'claude') apiKey = ck.anthropicApiKey || cfg.anthropicApiKey;
+      else if (activeProvider === 'gemini') apiKey = ck.geminiApiKey || cfg.geminiApiKey;
+      else if (activeProvider === 'openrouter') apiKey = ck.openrouterApiKey || cfg.openrouterApiKey;
+      else if (activeProvider === '9router') {
+        apiKey = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
+        targetBaseUrl = targetBaseUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+      }
+      else if (activeProvider === 'local') {
+        apiKey = 'local';
+        targetBaseUrl = targetBaseUrl || ck.localBaseUrl || cfg.localBaseUrl;
+      }
     }
 
     if (activeProvider !== 'local' && !apiKey) {
@@ -297,9 +320,10 @@ app.post('/api/notion/sync', async (req, res) => {
   try {
     const { targetId, targetType, title, moduleName, rawData, analysisJson } = req.body;
     const cfg = loadConfig();
-    const token = cfg.notionToken;
-    const parentId = targetId || cfg.notionParentId;
-    const parentType = targetType || cfg.notionParentType || 'page';
+    const ck = getClientKeys(req);
+    const token = req.body.notionToken || ck.notionToken || cfg.notionToken;
+    const parentId = targetId || ck.notionParentId || cfg.notionParentId;
+    const parentType = targetType || ck.notionParentType || cfg.notionParentType || 'page';
 
     if (!token) {
       return res.status(400).json({ success: false, error: 'Chưa cấu hình Notion Token' });

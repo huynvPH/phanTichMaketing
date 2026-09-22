@@ -26,19 +26,27 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
 
   useEffect(() => {
     if (isOpen) {
+      let localKeys = {};
+      try {
+        const saved = localStorage.getItem('marketing_client_keys');
+        if (saved) localKeys = JSON.parse(saved);
+      } catch {}
+
       fetch('/api/config')
         .then((res) => res.json())
         .then((data) => {
           setFormData((prev) => ({
             ...prev,
-            nineRouterApiKey: data.nineRouterApiKey || '',
-            nineRouterBaseUrl: data.nineRouterBaseUrl || 'http://localhost:20128/v1',
-            nineRouterModel: data.nineRouterModel || 'ag/claude-sonnet-4-6',
-            openaiApiKey: data.maskedOpenAI ? prev.openaiApiKey : '',
-            anthropicApiKey: data.maskedClaude ? prev.anthropicApiKey : '',
-            geminiApiKey: data.maskedGemini ? prev.geminiApiKey : '',
-            notionParentId: data.notionParentId || '',
-            notionParentType: data.notionParentType || 'page',
+            nineRouterApiKey: localKeys.nineRouterApiKey || data.nineRouterApiKey || '',
+            nineRouterBaseUrl: localKeys.nineRouterBaseUrl || data.nineRouterBaseUrl || 'http://localhost:20128/v1',
+            nineRouterModel: localKeys.nineRouterModel || data.nineRouterModel || 'ag/claude-sonnet-4-6',
+            openaiApiKey: localKeys.openaiApiKey || (data.maskedOpenAI ? prev.openaiApiKey : ''),
+            anthropicApiKey: localKeys.anthropicApiKey || (data.maskedClaude ? prev.anthropicApiKey : ''),
+            geminiApiKey: localKeys.geminiApiKey || (data.maskedGemini ? prev.geminiApiKey : ''),
+            openrouterApiKey: localKeys.openrouterApiKey || prev.openrouterApiKey || '',
+            notionToken: localKeys.notionToken || prev.notionToken || '',
+            notionParentId: localKeys.notionParentId || data.notionParentId || '',
+            notionParentType: localKeys.notionParentType || data.notionParentType || 'page',
           }));
         })
         .catch(console.error);
@@ -98,6 +106,26 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
     e.preventDefault();
     setSaving(true);
     try {
+      // 1. Luôn lưu vào localStorage của trình duyệt (Hoạt động 100% trên Vercel & Serverless)
+      try {
+        const toSave = {
+          openaiApiKey: formData.openaiApiKey,
+          anthropicApiKey: formData.anthropicApiKey,
+          geminiApiKey: formData.geminiApiKey,
+          openrouterApiKey: formData.openrouterApiKey,
+          nineRouterApiKey: formData.nineRouterApiKey,
+          nineRouterBaseUrl: formData.nineRouterBaseUrl,
+          nineRouterModel: formData.nineRouterModel,
+          notionToken: formData.notionToken,
+          notionParentId: formData.notionParentId,
+          notionParentType: formData.notionParentType,
+        };
+        localStorage.setItem('marketing_client_keys', JSON.stringify(toSave));
+      } catch (e) {
+        console.warn('Lỗi lưu localStorage:', e);
+      }
+
+      // 2. Gửi lưu server (dành cho local development)
       const payload = {};
       if (formData.nineRouterApiKey) payload.nineRouterApiKey = formData.nineRouterApiKey;
       if (formData.nineRouterBaseUrl) payload.nineRouterBaseUrl = formData.nineRouterBaseUrl;
@@ -109,16 +137,14 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
       payload.notionParentId = formData.notionParentId;
       payload.notionParentType = formData.notionParentType;
 
-      const res = await fetch('/api/config', {
+      fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (onConfigUpdated) onConfigUpdated();
-        onClose();
-      }
+      }).catch(() => {});
+
+      if (onConfigUpdated) onConfigUpdated();
+      onClose();
     } catch (err) {
       alert('Lỗi lưu cấu hình: ' + err.message);
     } finally {
