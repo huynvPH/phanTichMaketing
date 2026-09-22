@@ -344,6 +344,68 @@ Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực 
   }
 });
 
+// 5.1 API: Phân tích & trích xuất metadata từ danh sách links/kênh video đối thủ
+app.post('/api/competitor/parse-links', (req, res) => {
+  try {
+    const { links = [] } = req.body;
+    const parsed = links.map((link, idx) => {
+      const url = String(link).trim();
+      let platform = 'Khác';
+      let id = `VID-${idx + 1}`;
+      let channel = 'Đối thủ tham chiếu';
+      let type = 'video';
+
+      if (url.includes('tiktok.com')) {
+        platform = 'TikTok';
+        if (url.includes('/video/')) {
+          const m = url.match(/\/video\/(\d+)/);
+          if (m) id = m[1];
+        }
+        const userMatch = url.match(/@([a-zA-Z0-9_.-]+)/);
+        if (userMatch) channel = `@${userMatch[1]}`;
+        if (!url.includes('/video/')) type = 'channel';
+      } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        platform = 'YouTube';
+        if (url.includes('/shorts/')) {
+          const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+          if (m) id = m[1];
+          type = 'shorts';
+        } else if (url.includes('watch?v=')) {
+          const m = url.match(/v=([a-zA-Z0-9_-]+)/);
+          if (m) id = m[1];
+        } else if (url.includes('youtu.be/')) {
+          const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+          if (m) id = m[1];
+        } else if (url.includes('/@')) {
+          type = 'channel';
+          const u = url.match(/@([a-zA-Z0-9_.-]+)/);
+          if (u) channel = `@${u[1]}`;
+        }
+      } else if (url.includes('facebook.com') || url.includes('fb.watch')) {
+        platform = 'Facebook';
+        if (url.includes('/reel/')) type = 'reels';
+        else if (url.includes('ads/library')) type = 'ad_library';
+      } else if (url.includes('instagram.com')) {
+        platform = 'Instagram';
+        if (url.includes('/reel/')) type = 'reels';
+      }
+
+      return {
+        url,
+        platform,
+        id,
+        channel,
+        type,
+        status: 'ready'
+      };
+    });
+
+    res.json({ success: true, total: parsed.length, videos: parsed });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 6. API: Xuất dữ liệu sang Notion
 app.post('/api/notion/sync', async (req, res) => {
   try {

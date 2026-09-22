@@ -3,7 +3,8 @@ import {
   Layers, 
   CalendarDays, 
   Database, 
-  ChevronRight 
+  ChevronRight,
+  Swords
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
@@ -17,6 +18,12 @@ export const TAB_GROUPS = [
         title: 'Nghiên Cứu Khách Hàng',
         sub: 'Phân tích Insight toàn diện',
         icon: Compass,
+      },
+      {
+        id: 'competitor_videos',
+        title: 'Tình Báo Video Đối Thủ',
+        sub: 'Quét link & Bóc tách kịch bản',
+        icon: Swords,
       },
     ],
   },

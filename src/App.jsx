@@ -8,6 +8,7 @@ import FramingView from './views/FramingView';
 import SearchDemandView from './views/SearchDemandView';
 import VocView from './views/VocView';
 import CompetitorView from './views/CompetitorView';
+import CompetitorVideoView from './views/CompetitorVideoView';
 import OfferView from './views/OfferView';
 import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
@@ -139,6 +140,26 @@ export default function App() {
     showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
   };
 
+  const handleSaveCompetitorVideos = (analyzed, payload) => {
+    setResearchContext((prev) => {
+      const updated = {
+        ...prev,
+        competitorVideo: analyzed,
+        competitor: {
+          rawText: payload?.targetIndustry ? `Ngành: ${payload.targetIndustry}\nSố lượng link: ${payload.detectedCount || 0}` : '',
+          parsedResult: analyzed,
+          winningFormats: (analyzed?.clusters || []).map(c => `${c.clusterName} (${c.percentage}): ${c.characteristics}`),
+          blueOceanAngles: analyzed?.strategicReport?.blueOceanScriptGaps || [],
+        },
+      };
+      try {
+        localStorage.setItem('marketing_research_context', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    showToast('Đã lưu dữ liệu Tình báo Video Đối thủ vào Tầng 1 và đồng bộ sang Chiến lược!');
+  };
+
   const handleSaveStrategy = (newStrategy) => {
     setStrategyData(newStrategy);
     try {
@@ -214,6 +235,15 @@ export default function App() {
               currentModel={currentModel}
               researchContext={researchContext}
               onSaveAllResearch={handleSaveAllResearch}
+              onNavigateToStrategy={() => setActiveTab('strategy')}
+              onSyncToNotion={handleSyncToNotion}
+            />
+          )}
+          {activeTab === 'competitor_videos' && (
+            <CompetitorVideoView
+              currentModel={currentModel}
+              researchContext={researchContext}
+              onSaveCompetitorData={handleSaveCompetitorVideos}
               onNavigateToStrategy={() => setActiveTab('strategy')}
               onSyncToNotion={handleSyncToNotion}
             />
