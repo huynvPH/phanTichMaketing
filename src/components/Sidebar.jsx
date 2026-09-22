@@ -15,7 +15,7 @@ export const TAB_GROUPS = [
       {
         id: 'all_in_one',
         title: 'Nghiên Cứu Khách Hàng',
-        sub: '1 Form duy nhất cho Sếp',
+        sub: 'Phân tích Insight toàn diện',
         icon: Compass,
       },
     ],
