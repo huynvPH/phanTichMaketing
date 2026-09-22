@@ -1,64 +1,29 @@
 import { 
   Compass, 
-  Search, 
-  MessageSquareQuote, 
-  Swords, 
-  Tag, 
-  Layers,
-  CalendarDays,
-  Database,
-  ChevronRight,
-  Crown
+  Layers, 
+  CalendarDays, 
+  Database, 
+  ChevronRight 
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
   {
     title: 'TẦNG 1: CUSTOMER RESEARCH',
-    badge: 'Hợp Nhất',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
+    badge: 'Nghiên Cứu',
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
     tabs: [
       {
         id: 'all_in_one',
-        title: '⭐ Tổng Hợp Tầng 1',
+        title: 'Nghiên Cứu Khách Hàng',
         sub: '1 Form duy nhất cho Sếp',
-        icon: Crown,
-      },
-      {
-        id: 'framing',
-        title: '1. Định Khung Đề Bài',
-        sub: 'Mục tiêu & Bối cảnh',
         icon: Compass,
-      },
-      {
-        id: 'search',
-        title: '2. Nhu Cầu Tìm Kiếm',
-        sub: 'Search & Xu hướng',
-        icon: Search,
-      },
-      {
-        id: 'voc',
-        title: '3. Tiếng Nói Khách Hàng',
-        sub: 'Comment, Review & Nỗi đau',
-        icon: MessageSquareQuote,
-      },
-      {
-        id: 'competitor',
-        title: '4. Nội Dung Đối Thủ',
-        sub: 'Angles & Format viral',
-        icon: Swords,
-      },
-      {
-        id: 'offer',
-        title: '5. Quảng Cáo & Offer',
-        sub: 'Combo & Lời chào hàng',
-        icon: Tag,
       },
     ],
   },
   {
     title: 'TẦNG 2: STRATEGY',
-    badge: 'Pillars',
-    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    badge: 'Chiến Lược',
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
     tabs: [
       {
         id: 'strategy',
@@ -70,8 +35,8 @@ export const TAB_GROUPS = [
   },
   {
     title: 'TẦNG 3: EXECUTION',
-    badge: 'Calendar',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    badge: 'Kế Hoạch',
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
     tabs: [
       {
         id: 'calendar',
@@ -84,7 +49,7 @@ export const TAB_GROUPS = [
   {
     title: 'HỆ THỐNG',
     badge: 'Xuất',
-    badgeColor: 'bg-slate-50 text-slate-600 border-slate-200',
+    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
     tabs: [
       {
         id: 'notion',
