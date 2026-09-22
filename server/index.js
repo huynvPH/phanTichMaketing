@@ -1,0 +1,346 @@
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import { testAIConnection, callAI, PROMPT_TEMPLATES } from './aiService.js';
+import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
+
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const CONFIG_FILE = path.join(__dirname, '..', 'config.json');
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+app.use(cors());
+app.use(express.json({ limit: '15mb' }));
+
+// Helper: Đọc cấu hình cục bộ
+function loadConfig() {
+  let fileData = {};
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = fs.readFileSync(CONFIG_FILE, 'utf8');
+      fileData = JSON.parse(data);
+    }
+  } catch (err) {
+    console.error('Lỗi khi đọc config.json:', err.message);
+  }
+  return {
+    openaiApiKey: process.env.OPENAI_API_KEY || fileData.openaiApiKey || '',
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY || fileData.anthropicApiKey || '',
+    geminiApiKey: process.env.GEMINI_API_KEY || fileData.geminiApiKey || '',
+    openrouterApiKey: process.env.OPENROUTER_API_KEY || fileData.openrouterApiKey || '',
+    openrouterModel: process.env.OPENROUTER_MODEL || fileData.openrouterModel || 'Gemini 3.6 Flash',
+    nineRouterApiKey: process.env.NINEROUTER_API_KEY || fileData.nineRouterApiKey || '',
+    nineRouterBaseUrl: process.env.NINEROUTER_BASE_URL || fileData.nineRouterBaseUrl || 'http://localhost:20128/v1',
+    nineRouterModel: process.env.NINEROUTER_MODEL || fileData.nineRouterModel || 'ag/claude-sonnet-4-6',
+    localBaseUrl: process.env.LOCAL_BASE_URL || fileData.localBaseUrl || 'http://localhost:20128/v1',
+    localModel: process.env.LOCAL_MODEL || fileData.localModel || 'ag/claude-sonnet-4-6',
+    notionToken: process.env.NOTION_TOKEN || fileData.notionToken || '',
+    notionParentId: process.env.NOTION_PARENT_ID || fileData.notionParentId || '',
+    notionParentType: process.env.NOTION_PARENT_TYPE || fileData.notionParentType || 'page',
+    defaultProvider: process.env.DEFAULT_PROVIDER || fileData.defaultProvider || 'gemini',
+    defaultModel: process.env.DEFAULT_MODEL || fileData.defaultModel || 'gemini-2.5-flash',
+  };
+}
+
+// Helper: Lưu cấu hình cục bộ (chỉ ghi khi không ở môi trường serverless readonly)
+function saveConfig(config) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Không thể ghi config.json (môi trường Vercel):', e.message);
+  }
+}
+
+// 1. API: Lấy trạng thái cấu hình
+app.get('/api/config', (req, res) => {
+  const cfg = loadConfig();
+  res.json({
+    hasOpenAI: Boolean(cfg.openaiApiKey),
+    hasClaude: Boolean(cfg.anthropicApiKey),
+    hasGemini: Boolean(cfg.geminiApiKey),
+    hasOpenRouter: Boolean(cfg.openrouterApiKey),
+    hasNineRouter: Boolean(cfg.nineRouterApiKey),
+    hasLocal: Boolean(cfg.localBaseUrl),
+    hasNotion: Boolean(cfg.notionToken),
+    maskedOpenAI: cfg.openaiApiKey ? `${cfg.openaiApiKey.slice(0, 4)}...${cfg.openaiApiKey.slice(-4)}` : '',
+    maskedClaude: cfg.anthropicApiKey ? `${cfg.anthropicApiKey.slice(0, 4)}...${cfg.anthropicApiKey.slice(-4)}` : '',
+    maskedGemini: cfg.geminiApiKey ? `${cfg.geminiApiKey.slice(0, 4)}...${cfg.geminiApiKey.slice(-4)}` : '',
+    maskedOpenRouter: cfg.openrouterApiKey ? `${cfg.openrouterApiKey.slice(0, 7)}...${cfg.openrouterApiKey.slice(-4)}` : '',
+    openrouterModel: cfg.openrouterModel || 'deepseek/deepseek-chat',
+    maskedNineRouter: cfg.nineRouterApiKey ? `${cfg.nineRouterApiKey.slice(0, 7)}...${cfg.nineRouterApiKey.slice(-4)}` : '',
+    nineRouterBaseUrl: cfg.nineRouterBaseUrl || 'http://localhost:20128/v1',
+    nineRouterModel: cfg.nineRouterModel || 'ag/claude-sonnet-4-6',
+    localBaseUrl: cfg.localBaseUrl || 'http://localhost:20128/v1',
+    localModel: cfg.localModel || 'ag/claude-sonnet-4-6',
+    maskedNotion: cfg.notionToken ? `${cfg.notionToken.slice(0, 7)}...${cfg.notionToken.slice(-4)}` : '',
+    notionParentId: cfg.notionParentId || '',
+    notionParentType: cfg.notionParentType || 'page',
+    defaultProvider: cfg.defaultProvider || '9router',
+    defaultModel: cfg.defaultModel || 'ag/claude-sonnet-4-6',
+  });
+});
+
+// 2. API: Cập nhật cấu hình
+app.post('/api/config', (req, res) => {
+  try {
+    const current = loadConfig();
+    const {
+      openaiApiKey,
+      anthropicApiKey,
+      geminiApiKey,
+      openrouterApiKey,
+      openrouterModel,
+      nineRouterApiKey,
+      nineRouterBaseUrl,
+      nineRouterModel,
+      localBaseUrl,
+      localModel,
+      notionToken,
+      notionParentId,
+      notionParentType,
+      defaultProvider,
+      defaultModel,
+    } = req.body;
+
+    const updated = {
+      ...current,
+      ...(openaiApiKey !== undefined && { openaiApiKey }),
+      ...(anthropicApiKey !== undefined && { anthropicApiKey }),
+      ...(geminiApiKey !== undefined && { geminiApiKey }),
+      ...(openrouterApiKey !== undefined && { openrouterApiKey }),
+      ...(openrouterModel !== undefined && { openrouterModel }),
+      ...(nineRouterApiKey !== undefined && { nineRouterApiKey }),
+      ...(nineRouterBaseUrl !== undefined && { nineRouterBaseUrl }),
+      ...(nineRouterModel !== undefined && { nineRouterModel }),
+      ...(localBaseUrl !== undefined && { localBaseUrl }),
+      ...(localModel !== undefined && { localModel }),
+      ...(notionToken !== undefined && { notionToken }),
+      ...(notionParentId !== undefined && { notionParentId }),
+      ...(notionParentType !== undefined && { notionParentType }),
+      ...(defaultProvider !== undefined && { defaultProvider }),
+      ...(defaultModel !== undefined && { defaultModel }),
+    };
+
+    saveConfig(updated);
+    res.json({ success: true, message: 'Đã lưu cấu hình API thành công!' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 3. API: Test kết nối tới từng bên
+app.post('/api/test-connection', async (req, res) => {
+  const { provider, apiKey, model, customBaseUrl } = req.body;
+  const cfg = loadConfig();
+
+  try {
+    if (provider === 'notion') {
+      const token = apiKey || cfg.notionToken;
+      const result = await testNotionConnection(token);
+      return res.json(result);
+    }
+
+    let key = apiKey;
+    let targetUrl = customBaseUrl;
+
+    if (!key) {
+      if (provider === 'openai') key = cfg.openaiApiKey;
+      else if (provider === 'claude') key = cfg.anthropicApiKey;
+      else if (provider === 'gemini') key = cfg.geminiApiKey;
+      else if (provider === 'openrouter') key = cfg.openrouterApiKey;
+      else if (provider === '9router') {
+        key = cfg.nineRouterApiKey || '';
+        targetUrl = targetUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+      } else if (provider === 'local') {
+        key = 'local-no-key';
+        targetUrl = targetUrl || cfg.localBaseUrl;
+      }
+    }
+
+    const result = await testAIConnection(provider, key, model, targetUrl);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 4. API: Lấy danh sách Pages/Databases từ Notion để người dùng chọn
+app.get('/api/notion/targets', async (req, res) => {
+  const cfg = loadConfig();
+  if (!cfg.notionToken) {
+    return res.status(400).json({ success: false, message: 'Chưa cấu hình Notion Token' });
+  }
+  const result = await listNotionTargets(cfg.notionToken);
+  res.json(result);
+});
+
+// 5. API: Thực hiện phân tích AI theo quy trình
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const {
+      moduleType, // 'voc' | 'search' | 'competitor' | 'offer' | 'framing'
+      provider,   // '9router' | 'claude' | 'openai' | 'gemini' | 'openrouter' | 'local'
+      model,
+      rawData,    // Dữ liệu người dùng paste (comment, review, text)
+      metadata,   // { industry, targetCustomer, currentProduct, etc. }
+      customPrompt,
+    } = req.body;
+
+    const cfg = loadConfig();
+    let activeProvider = provider;
+    if (!activeProvider) {
+      if (model?.startsWith('gemini')) activeProvider = 'gemini';
+      else if (model?.startsWith('gpt-')) activeProvider = 'openai';
+      else if (model?.includes('claude-3') || model?.includes('claude-sonnet')) {
+        if (model?.startsWith('ag/')) activeProvider = '9router';
+        else activeProvider = 'claude';
+      }
+      else if (model === 'local-model') activeProvider = 'local';
+      else activeProvider = cfg.defaultProvider || '9router';
+    }
+    let apiKey = '';
+    let targetBaseUrl = undefined;
+
+    if (activeProvider === 'openai') apiKey = cfg.openaiApiKey;
+    else if (activeProvider === 'claude') apiKey = cfg.anthropicApiKey;
+    else if (activeProvider === 'gemini') apiKey = cfg.geminiApiKey;
+    else if (activeProvider === 'openrouter') apiKey = cfg.openrouterApiKey;
+    else if (activeProvider === '9router') {
+      apiKey = cfg.nineRouterApiKey || '';
+      targetBaseUrl = cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+    }
+    else if (activeProvider === 'local') {
+      apiKey = 'local';
+      targetBaseUrl = cfg.localBaseUrl;
+    }
+
+    if (activeProvider !== 'local' && !apiKey) {
+      return res.status(400).json({
+        success: false,
+        error: `Bạn chưa thiết lập API Key cho ${activeProvider.toUpperCase()}. Hãy bấm vào Cài đặt để thêm key.`,
+      });
+    }
+
+    const template = PROMPT_TEMPLATES[moduleType] || PROMPT_TEMPLATES.voc;
+    const systemPrompt = template.systemPrompt;
+
+    const userPrompt = `
+BỐI CẢNH & PHẠM VI NGHIÊN CỨU:
+- Ngành/Lĩnh vực: ${metadata?.industry || 'Chưa xác định'}
+- Sản phẩm/Mô hình: ${metadata?.product || 'Chưa xác định'}
+- Nhóm khách hàng mục tiêu: ${metadata?.targetAudience || 'Khách hàng tiềm năng'}
+- Kênh/Nguồn dữ liệu: ${metadata?.source || 'Tổng hợp'}
+${customPrompt ? `- Yêu cầu bổ sung đặc biệt: ${customPrompt}` : ''}
+
+DỮ LIỆU ĐẦU VÀO ĐỂ BÓC TÁCH:
+${typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2)}
+
+Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực tế và trả về đúng định dạng JSON như quy định.
+`;
+
+    const activeModel =
+      model ||
+      (activeProvider === 'openrouter'
+        ? cfg.openrouterModel
+        : activeProvider === 'local'
+        ? cfg.localModel
+        : undefined);
+
+    const rawResponse = await callAI({
+      provider: activeProvider,
+      apiKey,
+      model: activeModel,
+      systemPrompt,
+      userPrompt,
+      customBaseUrl: targetBaseUrl,
+      jsonMode: activeProvider !== 'claude', // Claude hỗ trợ xuất format JSON tự nhiên rất chuẩn
+    });
+
+    // Parse JSON an toàn
+    let parsedData = null;
+    try {
+      const cleaned = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
+      parsedData = JSON.parse(cleaned);
+    } catch {
+      // Nếu model trả về có kèm text, cố bóc tách phần JSON
+      const match = rawResponse.match(/\{[\s\S]*\}/);
+      if (match) {
+        try {
+          parsedData = JSON.parse(match[0]);
+        } catch {}
+      }
+    }
+
+    res.json({
+      success: true,
+      provider: activeProvider,
+      model: model || 'default',
+      moduleType,
+      data: parsedData,
+      rawText: rawResponse,
+    });
+  } catch (error) {
+    console.error('Lỗi khi phân tích AI:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 6. API: Xuất dữ liệu sang Notion
+app.post('/api/notion/sync', async (req, res) => {
+  try {
+    const { targetId, targetType, title, moduleName, rawData, analysisJson } = req.body;
+    const cfg = loadConfig();
+    const token = cfg.notionToken;
+    const parentId = targetId || cfg.notionParentId;
+    const parentType = targetType || cfg.notionParentType || 'page';
+
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Chưa cấu hình Notion Token' });
+    }
+    if (!parentId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Chưa có Page ID / Database ID đích trên Notion. Vui lòng chọn hoặc nhập ID.',
+      });
+    }
+
+    const result = await createNotionResearchPage({
+      token,
+      parentId,
+      parentType,
+      title,
+      moduleName,
+      rawData,
+      analysisJson,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Lỗi khi đồng bộ Notion:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Phục vụ frontend nếu đã build
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.use((req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server Marketing AI Hub đang chạy tại http://localhost:${PORT}`);
+  });
+}
+
+export default app;

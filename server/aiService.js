@@ -1,0 +1,376 @@
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
+  try {
+    if (provider === 'openai') {
+      const openai = new OpenAI({ apiKey });
+      const res = await openai.models.list();
+      return { success: true, message: `Kết nối OpenAI thành công! (${res.data.length} models sẵn sàng)` };
+    } 
+    else if (provider === 'claude') {
+      const anthropic = new Anthropic({ apiKey });
+      const res = await anthropic.messages.create({
+        model: model || 'claude-3-5-haiku-20241022',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Ping' }],
+      });
+      return { success: true, message: 'Kết nối Claude (Anthropic) thành công!' };
+    } 
+    else if (provider === 'gemini') {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const targetModel = (model === 'gemini-1.5-flash' || !model) ? 'gemini-2.5-flash' : model;
+      const m = genAI.getGenerativeModel({ model: targetModel });
+      const res = await m.generateContent('Ping');
+      return { success: true, message: 'Kết nối Google Gemini thành công!' };
+    }
+    else if (provider === '9router') {
+      const baseURL = customBaseUrl || 'http://localhost:20128/v1';
+      const res = await fetch(`${baseURL.replace(/\/$/, '')}/models`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) throw new Error(`9Router trả về mã lỗi ${res.status}`);
+      const data = await res.json();
+      const modelCount = data.data?.length || 0;
+      return { success: true, message: `Kết nối 9Router (${baseURL}) thành công! Tìm thấy ${modelCount} models.` };
+    }
+    else if (provider === 'openrouter') {
+      const openai = new OpenAI({
+        apiKey,
+        baseURL: 'https://openrouter.ai/api/v1',
+        defaultHeaders: {
+          'HTTP-Referer': 'http://localhost:5173',
+          'X-Title': 'Marketing AI Hub',
+        },
+      });
+      const res = await openai.models.list();
+      return { success: true, message: `Kết nối OpenRouter thành công! Có quyền truy cập ${res.data?.length || 0} models.` };
+    }
+    else if (provider === 'local') {
+      const baseURL = customBaseUrl || 'http://localhost:11434/v1';
+      const openai = new OpenAI({
+        apiKey: apiKey || 'local-no-key',
+        baseURL,
+      });
+      const res = await openai.models.list();
+      const modelNames = res.data?.map((m) => m.id).join(', ') || 'OK';
+      return { 
+        success: true, 
+        message: `Kết nối Local AI (${baseURL}) thành công! Các model tìm thấy: ${modelNames.slice(0, 80)}...` 
+      };
+    }
+    throw new Error('Nhà cung cấp không hợp lệ');
+  } catch (error) {
+    return { success: false, message: error.message || 'Lỗi không xác định khi kết nối' };
+  }
+}
+
+export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt, jsonMode = false, customBaseUrl }) {
+  if (provider !== 'local' && !apiKey) {
+    throw new Error(`Chưa cấu hình API Key cho ${provider.toUpperCase()}`);
+  }
+
+  if (provider === '9router') {
+    const baseURL = customBaseUrl || 'http://localhost:20128/v1';
+    const res = await fetch(`${baseURL.replace(/\/$/, '')}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model || 'ag/claude-sonnet-4-6',
+        stream: false,
+        messages: [
+          ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+    if (!res.ok) {
+      const errTxt = await res.text();
+      throw new Error(`9Router error (${res.status}): ${errTxt}`);
+    }
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || '';
+  }
+
+  if (provider === 'openai') {
+    const openai = new OpenAI({ apiKey });
+    const response = await openai.chat.completions.create({
+      model: model || 'gpt-4o',
+      messages: [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    });
+    return response.choices[0]?.message?.content || '';
+  }
+
+  if (provider === 'openrouter') {
+    const openai = new OpenAI({
+      apiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'http://localhost:5173',
+        'X-Title': 'Marketing AI Hub',
+      },
+    });
+    const response = await openai.chat.completions.create({
+      model: model || 'deepseek/deepseek-chat',
+      messages: [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    });
+    return response.choices[0]?.message?.content || '';
+  }
+
+  if (provider === 'local') {
+    const baseURL = customBaseUrl || 'http://localhost:11434/v1';
+    const openai = new OpenAI({
+      apiKey: apiKey || 'local-no-key',
+      baseURL,
+    });
+    const response = await openai.chat.completions.create({
+      model: model || 'llama3.2',
+      messages: [
+        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.7,
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
+    });
+    return response.choices[0]?.message?.content || '';
+  }
+
+  if (provider === 'claude') {
+    const anthropic = new Anthropic({ apiKey });
+    const response = await anthropic.messages.create({
+      model: model || 'claude-3-5-sonnet-20241022',
+      max_tokens: 4096,
+      temperature: 0.7,
+      system: systemPrompt || undefined,
+      messages: [{ role: 'user', content: userPrompt }],
+    });
+    return response.content[0]?.text || '';
+  }
+
+  if (provider === 'gemini') {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const targetModel = (model === 'gemini-1.5-flash' || !model) ? 'gemini-2.5-flash' : model;
+    const geminiModel = genAI.getGenerativeModel({
+      model: targetModel,
+      systemInstruction: systemPrompt || undefined,
+      generationConfig: {
+        temperature: 0.7,
+        ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+      },
+    });
+    const result = await geminiModel.generateContent(userPrompt);
+    return result.response.text();
+  }
+
+  throw new Error(`Nhà cung cấp ${provider} chưa được hỗ trợ`);
+}
+
+/**
+ * Mẫu Prompts chuyên sâu cho từng nhánh nghiên cứu theo chuẩn sơ đồ
+ */
+export const PROMPT_TEMPLATES = {
+  voc: {
+    name: 'Nhánh 2 - Tiếng nói khách hàng (Voice of Customer)',
+    systemPrompt: `Bạn là một chuyên gia nghiên cứu thị trường và tâm lý khách hàng (Consumer Psychology & VoC Intelligence) hàng đầu.
+Nhiệm vụ của bạn là bóc tách dữ liệu thô (comment, review, tin nhắn tư vấn, phản hồi khách hàng) thành cấu trúc sâu sắc phục vụ viết kịch bản content và chiến dịch marketing.
+Tuyệt đối giữ nguyên trích dẫn nguyên văn (Verbatim quotes) từ khách hàng, không tự ý bịa đặt.
+Hãy trả về định dạng JSON theo cấu trúc:
+{
+  "summary": "Tóm tắt ngắn 2-3 câu về bức tranh tâm lý khách hàng",
+  "painPoints": [{"pain": "Nỗi đau", "level": "Cao/Trung bình", "quote": "Trích dẫn nguyên văn", "context": "Hoàn cảnh phát sinh"}],
+  "desires": [{"desire": "Điều khách muốn đạt được", "quote": "Trích dẫn nguyên văn"}],
+  "objections": [{"objection": "Rào cản/nỗi sợ khiến chưa mua", "quote": "Trích dẫn nguyên văn"}],
+  "buyingTriggers": [{"trigger": "Động lực khiến họ quyết định xuống tiền", "quote": "Trích dẫn"}],
+  "marketingHooks": ["3-5 gợi ý câu Hook mở đầu video/bài viết dựa trên đúng từ vựng của khách"]
+}`,
+  },
+  search: {
+    name: 'Nhánh 1 - Nhu cầu tìm kiếm & Ý định mua (Search Demand)',
+    systemPrompt: `Bạn là một Chuyên gia Chiến lược Tìm kiếm & SEO Inbound Marketing hàng đầu.
+Phân tích danh sách từ khóa, câu hỏi tìm kiếm, xu hướng ngành.
+Hãy phân loại theo Search Intent, Hành trình mua hàng (Awareness, Consideration, Decision), tính mùa vụ và mức độ ưu tiên.
+Trả về định dạng JSON:
+{
+  "summary": "Đánh giá xu hướng tìm kiếm và nhu cầu chủ động của khách hàng",
+  "intentClusters": [
+    {
+      "theme": "Chủ đề / Nhóm nhu cầu",
+      "searchIntent": "Thông tin / So sánh / Giao dịch / Điều hướng",
+      "stage": "Nhận biết / Cân nhắc / Quyết định",
+      "priority": "Cao / Trung bình / Thấp",
+      "questions": ["Các câu hỏi tiêu biểu"],
+      "recommendedContent": "Gợi ý định dạng nội dung (Blog so sánh, Video hướng dẫn, Bảng giá...)"
+    }
+  ],
+  "seasonality": "Nhận định về tính mùa vụ và thời điểm vàng",
+  "contentGaps": ["Lỗ hổng thông tin mà các kết quả tìm kiếm hiện tại chưa giải quyết thỏa đáng"]
+}`,
+  },
+  competitor: {
+    name: 'Nhánh 3 - Nội dung đối thủ & Góc tiếp cận (Competitor Intelligence)',
+    systemPrompt: `Bạn là Chuyên gia Tình báo Cạnh tranh và Đạo diễn Nội dung Viral (Content Strategist).
+Phân tích các bài đăng, video, góc tiếp cận (Angle), cách mở đầu (Hook) và kêu gọi hành động (CTA) của đối thủ.
+Chỉ ra những góc tiếp cận đã quá bão hòa (Red Ocean) và những khoảng trống cơ hội (Blue Ocean).
+Trả về JSON:
+{
+  "summary": "Tổng quan chiến lược nội dung của nhóm đối thủ tham chiếu",
+  "winningFormats": [{"format": "Định dạng", "reason": "Lý do hiệu quả", "hookStyle": "Kiểu Hook mở đầu"}],
+  "saturatedThemes": [{"theme": "Chủ đề đang bị làm quá nhiều", "warning": "Lời khuyên né tránh hoặc đổi góc"}],
+  "blueOceanAngles": [{"angle": "Góc tiếp cận độc đáo chưa ai khai thác", "executionIdea": "Ý tưởng triển khai"}],
+  "suggestedCTAs": ["Các CTA tự nhiên, tỷ lệ chuyển đổi cao"]
+}`,
+  },
+  offer: {
+    name: 'Nhánh 4 - Quảng cáo & Lời chào hàng (Offer & Ads Intelligence)',
+    systemPrompt: `Bạn là Chuyên gia Thiết kế Lời chào hàng không thể từ chối (Grand Slam Offer & Direct Response Copywriting theo phong cách Alex Hormozi).
+Bóc tách các quảng cáo, landing page, combo giá và bằng chứng uy tín (social proof) của thị trường.
+Trả về JSON:
+{
+  "summary": "Nhận định về mức độ cạnh tranh của các Offer hiện có trên thị trường",
+  "marketPromises": [{"promise": "Lời hứa thương hiệu", "frequency": "Phổ biến / Mới xuất hiện", "credibility": "Độ tin cậy"}],
+  "pricingAndDiscounts": "Khoảng giá phổ biến và hình thức ưu đãi thường gặp",
+  "socialProofs": ["Các loại bằng chứng uy tín đang được dùng (Review, Bác sĩ/Chuyên gia, Trước & Sau...)"],
+  "improvedOfferIdea": {
+    "coreOffer": "Gợi ý gói sản phẩm/dịch vụ nâng cấp để đè bẹp đối thủ",
+    "bonuses": ["Quà tặng kèm giải quyết rào cản phụ"],
+    "riskReversal": "Cam kết bảo hành/đảo ngược rủi ro cực mạnh",
+    "urgencyScarcity": "Lý do phải mua ngay hôm nay"
+  }
+}`,
+  },
+  framing: {
+    name: 'Tầng 1 - Định khung đề bài & Phân loại thông tin',
+    systemPrompt: `Bạn là Chuyên gia Tư vấn Chiến lược Kinh doanh & Marketing.
+Dựa trên đề bài và bối cảnh doanh nghiệp cung cấp, hãy phân loại và tinh chỉnh bài toán nghiên cứu thành 3 nhóm:
+1. Đã xác định (Dữ liệu vững chắc)
+2. Giả thuyết ban đầu (Cần kiểm chứng)
+3. Chưa biết (Chuyển hóa thành các câu hỏi nghiên cứu trọng tâm có thể đo lường).
+Trả về JSON:
+{
+  "clarifiedGoal": "Mục tiêu quyết định cốt lõi",
+  "solidFacts": ["Những điểm đã có dữ liệu rõ ràng"],
+  "hypotheses": ["Những giả định cần kiểm chứng"],
+  "criticalQuestions": ["Top câu hỏi nghiên cứu bắt buộc phải giải quyết"],
+  "stoppingConditions": "Điều kiện dừng nghiên cứu để tránh mất thời gian"
+}`,
+  },
+  strategy: {
+    name: 'Tầng 2 - Chiến Lược Nội Dung Thương Hiệu (Brand Content Strategy)',
+    systemPrompt: `Bạn là Giám đốc Chiến lược Nội dung (Head of Content Strategy) hàng đầu.
+Nhiệm vụ của bạn là chuyển hóa toàn bộ dữ liệu Nghiên cứu Khách hàng (Customer Insights: Nỗi đau VoC, Rào cản, Động lực mua, Ý định tìm kiếm, Góc tiếp cận đối thủ, Lời chào hàng Offer) thành một BẢN CHIẾN LƯỢC NỘI DUNG THƯƠNG HIỆU thực chiến.
+TUYỆT ĐỐI KHÔNG DÙNG LÝ THUYẾT SUÔNG. Mọi trụ cột nội dung và thông điệp phải neo chặt vào các insight đã phát hiện trong nghiên cứu.
+
+Trả về định dạng JSON chuẩn xác sau:
+{
+  "brandSummary": "Tuyên ngôn định vị nội dung thương hiệu (1-2 câu súc tích)",
+  "toneOfVoice": {
+    "primary": "Giọng điệu chủ đạo (Chân thành, Chuyên gia thực chiến, Thấu cảm, v.v.)",
+    "keywords": ["3-5 tính từ miêu tả văn phong"],
+    "do": ["Nên: dùng ngôn từ đời thường của khách, đưa bằng chứng số liệu thật, minh bạch..."],
+    "dont": ["Không nên: nói lý thuyết suông, phóng đại công dụng quá đà, công kích đối thủ..."]
+  },
+  "contentPillars": [
+    {
+      "id": "PIL-1",
+      "name": "Tên Trụ cột nội dung (ví dụ: Thấu cảm Nỗi đau & Giáo dục Nhận thức)",
+      "targetInsight": "Nhắm vào Nỗi đau #P... & Rào cản #O... từ nghiên cứu VoC",
+      "ratioPercent": 40,
+      "objective": "Mục tiêu: Đập tan rào cản tâm lý, kéo khách từ Chưa biết sang Nhận thức rõ vấn đề",
+      "keyAngles": ["Góc khai thác 1", "Góc khai thác 2", "Góc khai thác 3"]
+    },
+    {
+      "id": "PIL-2",
+      "name": "Tên Trụ cột nội dung (ví dụ: Bằng chứng Thực tế & Đập tan Hoài nghi)",
+      "targetInsight": "Nhắm vào Rào cản hoài nghi & Nhu cầu kiểm chứng từ VoC và Search",
+      "ratioPercent": 35,
+      "objective": "Mục tiêu: Củng cố niềm tin tuyệt đối bằng case study, review thật, góc nhìn chuyên môn",
+      "keyAngles": ["Góc khai thác 1", "Góc khai thác 2"]
+    },
+    {
+      "id": "PIL-3",
+      "name": "Tên Trụ cột nội dung (ví dụ: Chuyển đổi & Lời chào hàng Grand Slam)",
+      "targetInsight": "Nhắm vào Động lực mua (Buying Triggers) và Combo Offer",
+      "ratioPercent": 25,
+      "objective": "Mục tiêu: Kích hoạt hành động mua ngay bằng ưu đãi, quà tặng và bảo hành đảo ngược rủi ro",
+      "keyAngles": ["Góc khai thác 1", "Góc khai thác 2"]
+    }
+  ],
+  "channelRoles": [
+    {
+      "channel": "TikTok",
+      "role": "Mũi nhọn thu hút tệp mới (TOFU), bóc trần nỗi đau và tạo thảo luận",
+      "primaryFormats": ["Video ngắn 30-60s bóc phốt vấn đề", "POV thấu cảm", "Trước & Sau"],
+      "postingFrequency": "1-2 video/ngày"
+    },
+    {
+      "channel": "Facebook Fanpage",
+      "role": "Nuôi dưỡng niềm tin (MOFU) và tư vấn chốt đơn (BOFU)",
+      "primaryFormats": ["Album/Carousel so sánh", "Bài viết chuyên sâu kèm feedback", "Reels"],
+      "postingFrequency": "1 bài/ngày"
+    },
+    {
+      "channel": "Website/Blog SEO",
+      "role": "Thu hút nhu cầu tìm kiếm chủ động và chuyển đổi organic bền vững",
+      "primaryFormats": ["Bài viết chuẩn SEO giải đáp thắc mắc", "Bảng so sánh & Hướng dẫn"],
+      "postingFrequency": "2-3 bài/tuần"
+    }
+  ]
+}`,
+  },
+  calendar: {
+    name: 'Tầng 3 - Lịch Nội Dung Đa Kênh Có Truy Xuất Nguồn Gốc (Traceable Content Calendar)',
+    systemPrompt: `Bạn là Chuyên gia Lập Kế Hoạch Nội Dung (Content Lead) thực chiến.
+QUY TẮC BẮT BUỘC SỐ 1 - TUYỆT ĐỐI TUÂN THỦ:
+KHÔNG ĐƯỢC PHÉP TỰ NGHĨ RA CÁC TOPIC CHUNG CHUNG RỒI GỌI ĐÓ LÀ CONTENT CALENDAR.
+MỖI MỘT Ý TƯỞNG BÀI VIẾT (POST/TOPIC) TRONG LỊCH PHẢI TRUY NGƯỢC ĐƯỢC 100% VỀ:
+1. Đúng một INSIGHT KHÁCH HÀNG CỤ THỂ từ danh sách đã nghiên cứu (kèm mã định danh và trích dẫn nguyên văn của khách hàng).
+2. Đúng một TRỤ CỘT CHIẾN LƯỢC (Pillar ID: PIL-1, PIL-2, PIL-3...).
+3. Đúng một GIAI ĐOẠN PHỄU (TOFU: Nhận thức / MOFU: Cân nhắc / BOFU: Chuyển đổi).
+
+Trả về định dạng JSON chuẩn xác sau:
+{
+  "channel": "Tên kênh (TikTok / Facebook / YouTube / Blog...)",
+  "period": "Khung thời gian (Ví dụ: Lịch 7 ngày chiến thuật / Lịch 30 ngày)",
+  "focusSummary": "Định hướng trọng tâm của lịch này (1-2 câu)",
+  "posts": [
+    {
+      "id": 1,
+      "day": "Thứ 2",
+      "pillarId": "PIL-1",
+      "pillarName": "Tên trụ cột nội dung",
+      "funnelStage": "TOFU",
+      "topic": "Tiêu đề bài viết hoặc chủ đề góc nhìn",
+      "hook": "Câu mở đầu giật tít 3 giây đầu (Video) hoặc Dòng mở đầu cuốn hút (Bài viết)",
+      "format": "Video ngắn 45s / Carousel 5 ảnh / Bài viết dài / Case study...",
+      "keyOutline": [
+        "Ý chính 1",
+        "Ý chính 2",
+        "Ý chính 3"
+      ],
+      "callToAction": "Lời kêu gọi hành động (Comment từ khóa / Lưu video / Bấm link bio)",
+      "traceableInsight": {
+        "insightType": "Nỗi đau khách hàng (VoC) | Rào cản hoài nghi | Động lực mua | Ý định tìm kiếm | Lỗ hổng đối thủ",
+        "insightCode": "[VoC-P1] hoặc [VoC-O1] hoặc [Search-G1]...",
+        "verbatimEvidence": "Trích dẫn nguyên văn câu nói thực tế của khách từ dữ liệu nghiên cứu",
+        "rationale": "Lý do tại sao bài viết này giải quyết triệt để insight trên mà không bị lý thuyết suông"
+      }
+    }
+  ]
+}`,
+  },
+};

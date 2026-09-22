@@ -1,0 +1,17 @@
+{
+  "openaiApiKey": "",
+  "anthropicApiKey": "",
+  "geminiApiKey": "",
+  "openrouterApiKey": "",
+  "openrouterModel": "deepseek/deepseek-chat",
+  "nineRouterApiKey": "",
+  "nineRouterBaseUrl": "http://localhost:20128/v1",
+  "nineRouterModel": "ag/claude-sonnet-4-6",
+  "localBaseUrl": "http://localhost:11434/v1",
+  "localModel": "llama3.2",
+  "notionToken": "",
+  "notionParentId": "",
+  "notionParentType": "page",
+  "defaultProvider": "gemini",
+  "defaultModel": "gemini-2.5-flash"
+}
