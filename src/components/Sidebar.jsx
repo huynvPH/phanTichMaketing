@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   Compass, 
   Search, 
@@ -8,42 +7,49 @@ import {
   Layers,
   CalendarDays,
   Database,
-  ChevronRight
+  ChevronRight,
+  Crown
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
   {
     title: 'TẦNG 1: CUSTOMER RESEARCH',
-    badge: '5 Bước',
-    badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+    badge: 'Hợp Nhất',
+    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
     tabs: [
       {
+        id: 'all_in_one',
+        title: '⭐ Tổng Hợp Tầng 1',
+        sub: '1 Form duy nhất cho Sếp',
+        icon: Crown,
+      },
+      {
         id: 'framing',
-        title: 'Định Khung Đề Bài',
+        title: '1. Định Khung Đề Bài',
         sub: 'Mục tiêu & Bối cảnh',
         icon: Compass,
       },
       {
         id: 'search',
-        title: 'Nhu Cầu Tìm Kiếm',
+        title: '2. Nhu Cầu Tìm Kiếm',
         sub: 'Search & Xu hướng',
         icon: Search,
       },
       {
         id: 'voc',
-        title: 'Tiếng Nói Khách Hàng',
+        title: '3. Tiếng Nói Khách Hàng',
         sub: 'Comment, Review & Nỗi đau',
         icon: MessageSquareQuote,
       },
       {
         id: 'competitor',
-        title: 'Nội Dung Đối Thủ',
+        title: '4. Nội Dung Đối Thủ',
         sub: 'Angles & Format viral',
         icon: Swords,
       },
       {
         id: 'offer',
-        title: 'Quảng Cáo & Offer',
+        title: '5. Quảng Cáo & Offer',
         sub: 'Combo & Lời chào hàng',
         icon: Tag,
       },

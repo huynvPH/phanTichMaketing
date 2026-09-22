@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
 import NotionSyncModal from './components/NotionSyncModal';
+import ExecutiveResearchView from './views/ExecutiveResearchView';
 import FramingView from './views/FramingView';
 import SearchDemandView from './views/SearchDemandView';
 import VocView from './views/VocView';
@@ -13,7 +14,7 @@ import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('voc'); // Default to Voice of Customer
+  const [activeTab, setActiveTab] = useState('all_in_one'); // Mặc định mở Form Tổng Hợp Tầng 1 cho Sếp
   const [currentModel, setCurrentModel] = useState(() => {
     try {
       return localStorage.getItem('marketing_selected_model') || 'gemini-3.6-flash';
@@ -91,6 +92,53 @@ export default function App() {
     });
   };
 
+  const handleSaveAllResearch = (analyzed, formData) => {
+    setResearchContext((prev) => {
+      const updated = {
+        ...prev,
+        executive: analyzed,
+        framing: {
+          formData: {
+            goal: analyzed.framing?.clarifiedGoal || formData?.businessGoal || '',
+            facts: (analyzed.framing?.solidFacts || []).join('\n'),
+            hypotheses: (analyzed.framing?.hypotheses || []).join('\n'),
+            questions: (analyzed.framing?.criticalQuestions || []).join('\n'),
+          },
+          parsedResult: analyzed.framing,
+        },
+        search: {
+          rawText: (analyzed.search?.intentClusters || []).map(c => `${c.theme}: ${(c.questions || []).join(', ')}`).join('\n'),
+          parsedResult: analyzed.search,
+          intentClusters: analyzed.search?.intentClusters,
+        },
+        voc: {
+          rawText: formData?.customerPainRaw || '',
+          parsedResult: analyzed.voc,
+          painPoints: analyzed.voc?.painPoints,
+          objections: analyzed.voc?.objections,
+          desires: analyzed.voc?.desires,
+          buyingTriggers: analyzed.voc?.buyingTriggers,
+        },
+        competitor: {
+          rawText: formData?.competitorAndOffer || '',
+          parsedResult: analyzed.competitor,
+          winningFormats: analyzed.competitor?.winningFormats,
+          blueOceanAngles: analyzed.competitor?.blueOceanAngles,
+        },
+        offer: {
+          rawText: formData?.competitorAndOffer || '',
+          parsedResult: analyzed.offer,
+          improvedOfferIdea: analyzed.offer?.improvedOfferIdea,
+        },
+      };
+      try {
+        localStorage.setItem('marketing_research_context', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
+  };
+
   const handleSaveStrategy = (newStrategy) => {
     setStrategyData(newStrategy);
     try {
@@ -161,6 +209,15 @@ export default function App() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8">
+          {activeTab === 'all_in_one' && (
+            <ExecutiveResearchView
+              currentModel={currentModel}
+              researchContext={researchContext}
+              onSaveAllResearch={handleSaveAllResearch}
+              onNavigateToStrategy={() => setActiveTab('strategy')}
+              onSyncToNotion={handleSyncToNotion}
+            />
+          )}
           {activeTab === 'framing' && (
             <FramingView 
               currentModel={currentModel} 
