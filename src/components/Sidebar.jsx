@@ -67,11 +67,11 @@ export default function Sidebar({ activeTab, onSelectTab }) {
       <nav className="space-y-4">
         {TAB_GROUPS.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">
-            <div className="px-2 pb-1 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="px-2 pb-1 flex items-center justify-between gap-2 min-w-0">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
                 {group.title}
               </span>
-              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold border ${group.badgeColor}`}>
+              <span className={`text-[9px] px-2 py-0.5 rounded font-semibold border whitespace-nowrap shrink-0 ${group.badgeColor}`}>
                 {group.badge}
               </span>
             </div>
