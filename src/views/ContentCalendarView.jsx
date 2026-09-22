@@ -1,22 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar as CalendarIcon, 
   Sparkles, 
   Share2, 
-  Search, 
-  Filter, 
-  Link2, 
+  Copy, 
+  Check, 
+  Calendar as CalendarIcon, 
+  Clock, 
   Quote, 
-  CheckCircle, 
-  HelpCircle, 
-  Video, 
-  FileText, 
-  Layers, 
-  Eye, 
-  X,
-  Tag,
-  ArrowUpRight,
-  ShieldCheck
+  Layers,
+  ChevronDown,
+  RotateCcw
 } from 'lucide-react';
 
 export default function ContentCalendarView({ 
@@ -29,13 +22,9 @@ export default function ContentCalendarView({
 }) {
   const [selectedChannel, setSelectedChannel] = useState('TikTok');
   const [period, setPeriod] = useState('7 ngày (Weekly Sprint)');
-  const [selectedPillarFilter, setSelectedPillarFilter] = useState('ALL');
-  const [selectedFunnelFilter, setSelectedFunnelFilter] = useState('ALL');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
-
   const [loading, setLoading] = useState(false);
   const [calendar, setCalendar] = useState(calendarData || null);
-  const [activePostInspect, setActivePostInspect] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     setCalendar(calendarData || null);
@@ -43,19 +32,28 @@ export default function ContentCalendarView({
 
   const channels = ['TikTok', 'Facebook Fanpage', 'Shopee/Reels', 'Website/Blog SEO', 'YouTube Shorts'];
 
+  const handleReset = () => {
+    if (window.confirm('Bạn có chắc chắn muốn làm mới lịch nội dung?')) {
+      setCalendar(null);
+      try {
+        localStorage.removeItem('marketing_content_calendar');
+      } catch {}
+    }
+  };
+
   const handleGenerateCalendar = async () => {
     setLoading(true);
     try {
-      // Chuẩn bị dữ liệu Grounding bắt buộc từ Research + Strategy
       const groundingPayload = {
         channel: selectedChannel,
         period: period,
         brandStrategy: strategyData || null,
         customerResearchEvidence: {
-          vocData: researchContext?.voc || null,
-          searchDemand: researchContext?.search || null,
-          competitorData: researchContext?.competitor || null,
-          offerData: researchContext?.offer || null,
+          vocData: researchContext?.voc || researchContext?.executive?.voc || null,
+          searchDemand: researchContext?.search || researchContext?.executive?.search || null,
+          competitorData: researchContext?.competitor || researchContext?.executive?.competitor || null,
+          offerData: researchContext?.offer || researchContext?.executive?.offer || null,
+          framingData: researchContext?.framing || researchContext?.executive?.framing || null,
         },
       };
 
@@ -69,14 +67,14 @@ export default function ContentCalendarView({
           metadata: {
             channel: selectedChannel,
             period: period,
-            source: 'Hệ thống Lập Lịch Truy Xuất Nguồn Gốc',
+            source: 'Hệ thống Lập Lịch Đăng Bài Tầng 3',
           },
           customPrompt: `BẮT BUỘC: Không tự bịa topic. Mỗi post phải gán chính xác insightCode và verbatimEvidence (trích dẫn nguyên văn) từ dữ liệu nghiên cứu khách hàng đã cho.`,
         }),
       });
 
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      if (!data.success) throw new Error(data.error || 'Lỗi khi tạo lịch');
 
       setCalendar(data.data);
       if (onSaveCalendar) onSaveCalendar(data.data);
@@ -87,69 +85,82 @@ export default function ContentCalendarView({
     }
   };
 
-
-  // Lọc bài viết theo Pillar & Funnel
-  const filteredPosts = calendar?.posts?.filter((post) => {
-    if (selectedPillarFilter !== 'ALL' && post.pillarId !== selectedPillarFilter) return false;
-    if (selectedFunnelFilter !== 'ALL' && post.funnelStage !== selectedFunnelFilter) return false;
-    return true;
-  }) || [];
+  const copyPostHook = (hook, id) => {
+    navigator.clipboard.writeText(hook);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-8 pb-16">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
-              Tầng 3: Execution
-            </span>
-            <h2 className="text-lg font-bold text-slate-900">Lịch Nội Dung Đa Kênh Có Truy Xuất Nguồn Gốc</h2>
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Mỗi bài viết đều gắn chặt với Trích dẫn nguyên văn của khách hàng (VoC) và Trụ cột chiến lược (Pillar).
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+            Tầng 3: Execution
+          </span>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            Lịch Nội Dung Đa Kênh
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+            Chuyển hóa Chiến lược & Insight Khách hàng thành Kịch bản bài đăng chi tiết có truy vết nguồn gốc (Traceable).
           </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 shrink-0">
+          {calendar && (
+            <button
+              onClick={handleReset}
+              type="button"
+              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 transition font-medium border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+            >
+              Làm mới
+            </button>
+          )}
+
           <button
             onClick={handleGenerateCalendar}
             disabled={loading}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition disabled:opacity-50"
+            type="button"
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
-            <Sparkles className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Đang Tạo Lịch...' : 'AI Tạo Lịch Có Truy Vết'}
+            <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Đang tạo lịch...' : 'Bắt đầu Tạo Lịch'}
           </button>
         </div>
       </div>
 
-      {/* Control Bar: Chọn kênh & Bộ lọc */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3 text-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Chọn Kênh */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-            <span className="font-bold text-slate-700 shrink-0">Kênh:</span>
-            {channels.map((ch) => (
-              <button
-                key={ch}
-                onClick={() => setSelectedChannel(ch)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition shrink-0 ${
-                  selectedChannel === ch
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {ch}
-              </button>
-            ))}
+      {/* Control Panel: Chọn Kênh & Thời Gian (Tối giản) */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Chọn kênh */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-slate-700">Kênh triển khai:</label>
+            <div className="flex flex-wrap gap-1.5">
+              {channels.map((ch) => (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => setSelectedChannel(ch)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition cursor-pointer ${
+                    selectedChannel === ch
+                      ? 'bg-slate-900 text-white border-slate-900'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {ch}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Chọn Khung thời gian */}
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-700">Khung thời gian:</span>
+          {/* Chọn thời gian */}
+          <div className="space-y-1.5 shrink-0">
+            <label className="block text-xs font-medium text-slate-700">Khung thời gian:</label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="p-1.5 rounded-lg border border-slate-300 text-slate-800 text-xs bg-white focus:outline-none focus:border-indigo-600 font-medium"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-900 bg-white focus:outline-none focus:border-slate-400"
             >
               <option value="7 ngày (Weekly Sprint)">7 ngày (Weekly Sprint)</option>
               <option value="14 ngày (Bi-weekly)">14 ngày (Bi-weekly)</option>
@@ -158,347 +169,169 @@ export default function ContentCalendarView({
           </div>
         </div>
 
-        {/* Bộ lọc Pillar & Funnel & Chuyển View */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-[11px]">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-medium">Lọc Trụ Cột:</span>
-              <select
-                value={selectedPillarFilter}
-                onChange={(e) => setSelectedPillarFilter(e.target.value)}
-                className="p-1 rounded border border-slate-200 bg-slate-50 text-slate-700 text-xs"
-              >
-                <option value="ALL">Tất cả Trụ cột</option>
-                <option value="PIL-1">PIL-1: Thấu Cảm Nỗi Đau</option>
-                <option value="PIL-2">PIL-2: Bằng Chứng & Hoài Nghi</option>
-                <option value="PIL-3">PIL-3: Chuyển Đổi & Offer</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500 font-medium">Lọc Phễu:</span>
-              <select
-                value={selectedFunnelFilter}
-                onChange={(e) => setSelectedFunnelFilter(e.target.value)}
-                className="p-1 rounded border border-slate-200 bg-slate-50 text-slate-700 text-xs"
-              >
-                <option value="ALL">Tất cả giai đoạn</option>
-                <option value="TOFU">TOFU (Nhận thức)</option>
-                <option value="MOFU">MOFU (Cân nhắc)</option>
-                <option value="BOFU">BOFU (Chuyển đổi)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-2.5 py-1 rounded text-xs font-semibold ${viewMode === 'grid' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}
-            >
-              Lưới Tuần (Grid)
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`px-2.5 py-1 rounded text-xs font-semibold ${viewMode === 'table' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}
-            >
-              Bảng Truy Vết (Table)
-            </button>
-          </div>
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+          <span className="text-slate-500">
+            Mỗi bài đăng sẽ tự động truy vết về đúng 1 Trụ cột (Pillar) và 1 Trích dẫn VoC thực tế.
+          </span>
+          <button
+            onClick={handleGenerateCalendar}
+            disabled={loading}
+            type="button"
+            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+          >
+            <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Đang tạo lịch...' : `Tạo Lịch ${selectedChannel}`}
+          </button>
         </div>
       </div>
 
-      {/* Thông tin Lịch & Nút xuất Notion */}
-      {calendar && (
-        <div className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-            <div>
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span className="font-bold text-slate-900">
-                  {calendar.channel} • {calendar.period}
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {filteredPosts.length} Bài Viết Đã Kiểm Định Nguồn Gốc
-                </span>
-              </div>
-              <p className="text-slate-600 text-[11px] mt-0.5">
-                {calendar.focusSummary}
-              </p>
-            </div>
-
-            <button
-              onClick={() => onSyncToNotion(`Lịch Nội Dung ${calendar.channel}`, { channel: calendar.channel, period: calendar.period }, calendar)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs transition shrink-0"
-            >
-              <Share2 className="h-3.5 w-3.5 text-indigo-600" /> Xuất Calendar sang Notion
-            </button>
-          </div>
-
-          {/* DẠNG 1: GRID VIEW (Lưới ngày trong tuần) */}
-          {viewMode === 'grid' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredPosts.map((post) => {
-                const trace = post.traceableInsight || {};
-                const funnelColors = {
-                  TOFU: 'bg-sky-50 text-sky-700 border-sky-200',
-                  MOFU: 'bg-amber-50 text-amber-700 border-amber-200',
-                  BOFU: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                }[post.funnelStage] || 'bg-slate-100 text-slate-700';
-
-                return (
-                  <div
-                    key={post.id}
-                    onClick={() => setActivePostInspect(post)}
-                    className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-md hover:border-indigo-300 transition cursor-pointer flex flex-col justify-between space-y-3 group"
-                  >
-                    <div className="space-y-2.5">
-                      {/* Badge hàng đầu */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md">
-                          {post.day}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${funnelColors}`}>
-                            {post.funnelStage}
-                          </span>
-                          <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded">
-                            {post.pillarId}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Tiêu đề & Hook */}
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition leading-snug line-clamp-2">
-                          {post.topic}
-                        </h4>
-                        <p className="text-[11px] text-slate-600 italic mt-1 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                          {post.hook}
-                        </p>
-                      </div>
-
-                      {/* Định dạng */}
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                        <Video className="h-3 w-3 text-indigo-500" />
-                        <span className="truncate">{post.format}</span>
-                      </div>
-                    </div>
-
-                    {/* KHU VỰC TRUY XUẤT NGUỒN GỐC (TRACEABILITY BADGE) */}
-                    <div className="pt-2.5 border-t border-slate-100 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px]">
-                        <span className="font-bold text-slate-700 flex items-center gap-1">
-                          <Link2 className="h-3 w-3 text-indigo-600" /> Căn Cứ Insight:
-                        </span>
-                        <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
-                          {trace.insightCode || '[VoC]'}
-                        </span>
-                      </div>
-
-                      <p className="text-[11px] text-slate-700 line-clamp-2 bg-amber-50/60 p-2 rounded-lg border border-amber-200/60">
-                        💬 <strong className="font-semibold text-slate-800">Khách nói: </strong> 
-                        <span className="italic">{trace.verbatimEvidence || 'Dựa trên VoC'}</span>
-                      </p>
-
-                      <div className="flex items-center justify-between text-[10px] text-indigo-600 font-semibold pt-1">
-                        <span>Bấm để soi toàn bộ nguồn gốc</span>
-                        <ArrowUpRight className="h-3 w-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* DẠNG 2: TABLE VIEW (Bảng đối chiếu kiểm toán nguồn gốc) */}
-          {viewMode === 'table' && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 font-bold uppercase tracking-wider">
-                      <th className="p-3">Ngày & Phễu</th>
-                      <th className="p-3">Tiêu Đề & Hook</th>
-                      <th className="p-3">Trụ Cột (Pillar)</th>
-                      <th className="p-3">Insight Nguồn & Trích Dẫn Khách (Traceability)</th>
-                      <th className="p-3">Hành Động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredPosts.map((post) => {
-                      const trace = post.traceableInsight || {};
-                      return (
-                        <tr key={post.id} className="hover:bg-slate-50/80 transition">
-                          <td className="p-3 align-top whitespace-nowrap space-y-1">
-                            <span className="font-bold text-slate-900 block">{post.day}</span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-                              {post.funnelStage}
-                            </span>
-                          </td>
-
-                          <td className="p-3 align-top max-w-xs space-y-1">
-                            <span className="font-bold text-slate-900 block leading-snug">{post.topic}</span>
-                            <span className="text-[11px] text-slate-600 italic block">{post.hook}</span>
-                            <span className="text-[10px] text-slate-400 block">{post.format}</span>
-                          </td>
-
-                          <td className="p-3 align-top whitespace-nowrap">
-                            <span className="text-[11px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded block">
-                              {post.pillarId}
-                            </span>
-                            <span className="text-[10px] text-slate-500 block mt-1 max-w-[140px] truncate">
-                              {post.pillarName}
-                            </span>
-                          </td>
-
-                          <td className="p-3 align-top max-w-sm space-y-1">
-                            <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-700">
-                              <Link2 className="h-3 w-3" /> {trace.insightCode} • {trace.insightType}
-                            </div>
-                            <blockquote className="text-[11px] text-slate-700 bg-amber-50/70 p-2 rounded border border-amber-200/70 italic">
-                              "{trace.verbatimEvidence}"
-                            </blockquote>
-                            <p className="text-[10px] text-slate-500">
-                              💡 <strong>Lý do chọn:</strong> {trace.rationale}
-                            </p>
-                          </td>
-
-                          <td className="p-3 align-top whitespace-nowrap">
-                            <button
-                              onClick={() => setActivePostInspect(post)}
-                              className="px-2.5 py-1 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-semibold transition"
-                            >
-                              Xem Chi Tiết
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+      {/* Loading state */}
+      {loading && (
+        <div className="p-8 border border-slate-200 rounded-xl bg-slate-50 text-center space-y-2">
+          <div className="inline-block w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mb-1" />
+          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            AI đang lên kế hoạch kịch bản nội dung cho {selectedChannel}...
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Đang truy vết từng nỗi đau của khách hàng để tạo câu Hook và dàn ý chi tiết.
+          </p>
         </div>
       )}
 
-      {/* POPUP KIỂM TOÁN NGUỒN GỐC (TRACEABILITY INSPECTOR MODAL) */}
-      {activePostInspect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="relative w-full max-w-2xl rounded-2xl bg-white border border-slate-200 shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-emerald-600" />
+      {/* Calendar Results */}
+      {calendar && !loading && (
+        <div className="space-y-6 pt-2">
+          {/* Header Action Bar */}
+          <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">
+                Kế Hoạch Xuất Bản
+              </span>
+              <h2 className="text-base sm:text-lg font-bold text-white">
+                {calendar.channel} • {calendar.period}
+              </h2>
+              {calendar.focusSummary && (
+                <p className="text-xs text-slate-300 mt-1 max-w-lg">
+                  {calendar.focusSummary}
+                </p>
+              )}
+            </div>
+
+            {onSyncToNotion && (
+              <button
+                onClick={() => onSyncToNotion(`Lịch Nội Dung ${calendar.channel}`, { channel: calendar.channel, period: calendar.period }, calendar)}
+                type="button"
+                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+                Đồng bộ Notion
+              </button>
+            )}
+          </div>
+
+          {/* Posts List */}
+          <div className="space-y-4">
+            {(calendar.posts || []).map((post) => (
+              <div 
+                key={post.id || post.day}
+                className="bg-white border border-slate-200 rounded-xl p-5 space-y-3.5 shadow-xs transition hover:border-slate-300"
+              >
+                {/* Post Top Row */}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-slate-900 text-white">
+                      {post.day || `Bài ${post.id}`}
+                    </span>
+                    <span className="text-xs font-semibold text-slate-700">
+                      {post.funnelStage || 'TOFU'}
+                    </span>
+                    {post.format && (
+                      <span className="text-[11px] text-slate-500">
+                        • {post.format}
+                      </span>
+                    )}
+                  </div>
+
+                  <span className="text-[11px] px-2 py-0.5 rounded border border-slate-200 bg-slate-50 text-slate-600 font-medium">
+                    {post.pillarName || post.pillarId || 'Pillar'}
+                  </span>
+                </div>
+
+                {/* Topic Title */}
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
-                    Bảng Kiểm Định Nguồn Gốc Bài Viết ({activePostInspect.day})
+                    {post.topic}
                   </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Đối chiếu tính logic giữa Insight khách hàng và Kịch bản nội dung
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setActivePostInspect(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-4 text-xs">
-              {/* 1. Thông tin bài đăng */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-900 text-sm">
-                    {activePostInspect.topic}
-                  </span>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">
-                    {activePostInspect.pillarId}: {activePostInspect.pillarName}
-                  </span>
                 </div>
 
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block mb-1">Hook mở đầu:</span>
-                  <p className="text-xs font-semibold text-indigo-900 bg-white p-2.5 rounded-lg border border-slate-200">
-                    {activePostInspect.hook}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1">
-                  <span><strong>Định dạng:</strong> {activePostInspect.format}</span>
-                  <span><strong>Giai đoạn phễu:</strong> {activePostInspect.funnelStage}</span>
-                </div>
-              </div>
-
-              {/* 2. KHU VỰC TRUY XUẤT NGUỒN GỐC CỐT LÕI */}
-              <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-900 text-xs flex items-center gap-1.5">
-                    <Link2 className="h-4 w-4 text-amber-700" /> BẰNG CHỨNG THỰC TẾ TRUY XUẤT TỪ NGHIÊN CỨU
-                  </span>
-                  <span className="text-[11px] font-bold bg-amber-200/70 text-amber-900 px-2 py-0.5 rounded">
-                    {activePostInspect.traceableInsight?.insightCode || '[VoC Evidence]'}
-                  </span>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-amber-800 uppercase block mb-1">
-                    Trích dẫn nguyên văn câu nói của khách (Verbatim Quote):
-                  </span>
-                  <blockquote className="text-xs font-medium text-slate-800 bg-white p-3 rounded-lg border border-amber-200 italic shadow-2xs">
-                    "{activePostInspect.traceableInsight?.verbatimEvidence}"
-                  </blockquote>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-amber-800 uppercase block mb-1">
-                    Tại sao bài viết này giải quyết đúng Insight trên (Rationale):
-                  </span>
-                  <p className="text-xs text-slate-700 bg-white/80 p-2.5 rounded-lg border border-amber-100 leading-relaxed">
-                    {activePostInspect.traceableInsight?.rationale}
-                  </p>
-                </div>
-              </div>
-
-              {/* 3. Dàn ý kịch bản & CTA */}
-              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-3">
-                <span className="font-bold text-slate-900 text-xs block">
-                  Dàn Ý Triển Khai Nội Dung (Outline):
-                </span>
-                <ul className="space-y-1.5 text-slate-700 text-xs">
-                  {activePostInspect.keyOutline?.map((point, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <span className="h-4 w-4 rounded-full bg-indigo-50 text-indigo-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                        {idx + 1}
+                {/* Hook Box */}
+                {post.hook && (
+                  <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
+                        Câu Hook Mở Đầu (3 Giây Đầu):
                       </span>
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
+                      <p className="font-medium text-slate-800 italic">
+                        "{post.hook}"
+                      </p>
+                    </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-700">Lời kêu gọi hành động (CTA):</span>
-                  <span className="font-semibold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded">
-                    {activePostInspect.callToAction}
-                  </span>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => copyPostHook(post.hook, post.id)}
+                      className="text-slate-500 hover:text-slate-900 transition p-1 cursor-pointer shrink-0"
+                      title="Sao chép câu hook"
+                    >
+                      {copiedId === post.id ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    </button>
+                  </div>
+                )}
+
+                {/* Key Outline */}
+                {post.keyOutline && post.keyOutline.length > 0 && (
+                  <div className="text-xs space-y-1">
+                    <span className="text-[11px] font-semibold text-slate-600 block">
+                      Dàn ý triển khai:
+                    </span>
+                    <ul className="space-y-1 text-slate-700 pl-3">
+                      {post.keyOutline.map((item, idx) => (
+                        <li key={idx} className="list-disc leading-relaxed">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* CTA */}
+                {post.callToAction && (
+                  <div className="text-[11px] text-slate-600">
+                    <span className="font-semibold text-slate-700">Kêu gọi hành động (CTA):</span> {post.callToAction}
+                  </div>
+                )}
+
+                {/* Traceable Insight Box */}
+                {post.traceableInsight && (
+                  <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/70 text-[11px] space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-700">
+                        Nguồn gốc Insight: {post.traceableInsight.insightType || 'VoC'}
+                      </span>
+                      {post.traceableInsight.insightCode && (
+                        <span className="font-mono text-[10px] text-slate-500">
+                          {post.traceableInsight.insightCode}
+                        </span>
+                      )}
+                    </div>
+                    {post.traceableInsight.verbatimEvidence && (
+                      <p className="italic text-slate-600">
+                        "{post.traceableInsight.verbatimEvidence}"
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-end px-6 py-3 border-t border-slate-100 bg-slate-50/50">
-              <button
-                onClick={() => setActivePostInspect(null)}
-                className="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold transition"
-              >
-                Đóng
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       )}
