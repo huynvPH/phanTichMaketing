@@ -325,27 +325,43 @@ export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt
 
   if (provider === 'gemini') {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const candidateModels = [
-      (model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' || !model) ? 'gemini-3.6-flash' : model,
+    const primaryModel = (model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' || !model) ? 'gemini-3.6-flash' : model;
+    
+    // Danh sách model ứng viên xếp theo thứ tự ưu tiên
+    const candidateModels = Array.from(new Set([
+      primaryModel,
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
       'gemini-flash-latest',
-    ];
+      'gemini-2.5-pro'
+    ]));
 
     let lastError;
     for (const targetModel of candidateModels) {
-      try {
-        const geminiModel = genAI.getGenerativeModel({
-          model: targetModel,
-          systemInstruction: systemPrompt || undefined,
-          generationConfig: {
-            temperature: 0.7,
-            ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
-          },
-        });
-        const result = await geminiModel.generateContent(userPrompt);
-        return result.response.text();
-      } catch (err) {
-        lastError = err;
-        console.warn(`Gemini model ${targetModel} gặp lỗi: ${err.message}. Thử model dự phòng...`);
+      // Mỗi model thử tối đa 2 lần (nếu gặp 503 thì chờ 1.2 giây rồi retry)
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const geminiModel = genAI.getGenerativeModel({
+            model: targetModel,
+            systemInstruction: systemPrompt || undefined,
+            generationConfig: {
+              temperature: 0.7,
+              ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+            },
+          });
+          const result = await geminiModel.generateContent(userPrompt);
+          return result.response.text();
+        } catch (err) {
+          lastError = err;
+          const is503 = err.message?.includes('503') || err.message?.includes('high demand');
+          if (is503 && attempt === 1) {
+            // Chờ 1.2s trước khi thử lại model này
+            await new Promise((r) => setTimeout(r, 1200));
+            continue;
+          }
+          console.warn(`Gemini model ${targetModel} gặp lỗi (${err.message}). Chuyển sang model ứng viên tiếp theo...`);
+          break; // Chuyển sang model tiếp theo trong danh sách
+        }
       }
     }
     throw lastError;
