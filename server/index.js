@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { testAIConnection, callAI, PROMPT_TEMPLATES } from './aiService.js';
+import { testAIConnection, callAI, fetchProviderModels, getDefaultModels, PROMPT_TEMPLATES } from './aiService.js';
 import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
 
 dotenv.config();
@@ -186,6 +186,35 @@ app.post('/api/test-connection', async (req, res) => {
     return res.json(result);
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 3.1 API: Lấy danh sách models động từ Provider
+app.post('/api/ai/models', async (req, res) => {
+  try {
+    const { provider, apiKey, customBaseUrl } = req.body;
+    const cfg = loadConfig();
+    const ck = getClientKeys(req);
+
+    let key = apiKey;
+    let targetUrl = customBaseUrl;
+    if (!key) {
+      if (provider === 'gemini') key = ck.geminiApiKey || cfg.geminiApiKey;
+      else if (provider === 'openai') key = ck.openaiApiKey || cfg.openaiApiKey;
+      else if (provider === 'claude') key = ck.anthropicApiKey || cfg.anthropicApiKey;
+      else if (provider === 'openrouter') key = ck.openrouterApiKey || cfg.openrouterApiKey;
+      else if (provider === '9router') {
+        key = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
+        targetUrl = targetUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+      } else if (provider === 'local') {
+        targetUrl = targetUrl || ck.localBaseUrl || cfg.localBaseUrl || 'http://localhost:11434/v1';
+      }
+    }
+
+    const models = await fetchProviderModels(provider, key, targetUrl);
+    res.json({ success: true, provider, models });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

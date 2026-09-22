@@ -14,7 +14,20 @@ import NotionView from './views/NotionView';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('voc'); // Default to Voice of Customer
-  const [currentModel, setCurrentModel] = useState('gemini-3.6-flash');
+  const [currentModel, setCurrentModel] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_selected_model') || 'gemini-3.6-flash';
+    } catch {
+      return 'gemini-3.6-flash';
+    }
+  });
+
+  const handleModelChange = (modelId) => {
+    setCurrentModel(modelId);
+    try {
+      localStorage.setItem('marketing_selected_model', modelId);
+    } catch {}
+  };
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotionSyncOpen, setIsNotionSyncOpen] = useState(false);
   const [exportData, setExportData] = useState(null);
@@ -137,7 +150,7 @@ export default function App() {
       <Header
         config={config}
         currentModel={currentModel}
-        onModelChange={setCurrentModel}
+        onModelChange={handleModelChange}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 

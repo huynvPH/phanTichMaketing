@@ -92,6 +92,22 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [provider]: data }));
 
+      // Lưu trữ danh sách models tìm thấy vào localStorage và thông báo cho ModelSelector
+      if (data.success && Array.isArray(data.models) && data.models.length > 0) {
+        try {
+          const saved = localStorage.getItem('marketing_dynamic_models');
+          const existing = saved ? JSON.parse(saved) : [];
+          const map = new Map();
+          existing.forEach((m) => map.set(m.id, m));
+          data.models.forEach((m) => map.set(m.id, m));
+          const merged = Array.from(map.values());
+          localStorage.setItem('marketing_dynamic_models', JSON.stringify(merged));
+          window.dispatchEvent(new Event('marketing_models_updated'));
+        } catch (e) {
+          console.warn('Lỗi lưu dynamic models:', e);
+        }
+      }
+
       if (provider === 'notion' && data.success) {
         loadNotionPages();
       }

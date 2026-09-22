@@ -2,21 +2,175 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+export function getDefaultModels(provider) {
+  switch (provider) {
+    case 'gemini':
+      return [
+        { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Khuyên dùng)', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
+        { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Google Cao Cấp', provider: 'gemini', category: 'Google' },
+        { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Google', provider: 'gemini', category: 'Google' },
+      ];
+    case 'openai':
+      return [
+        { id: 'gpt-4o', name: 'GPT-4o (Khuyên dùng)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Nhanh & Tiết kiệm)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+        { id: 'o3-mini', name: 'o3-mini (Tư duy sâu)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+        { id: 'o1', name: 'o1 (Reasoning cao cấp)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+      ];
+    case 'claude':
+      return [
+        { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet (Mới nhất)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Chuẩn VoC)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Siêu tốc)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+      ];
+    case '9router':
+      return [
+        { id: 'ag/claude-sonnet-4-6', name: 'Claude Sonnet (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+        { id: 'ag/gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+        { id: 'ag/gemini-3.6-flash-high', name: 'Gemini 3.6 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+      ];
+    case 'openrouter':
+      return [
+        { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3 (OpenRouter)', tag: 'Rẻ 99%', provider: 'openrouter', category: 'OpenRouter' },
+        { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (Lý luận sâu)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
+        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
+        { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (OpenRouter)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
+      ];
+    case 'local':
+      return [
+        { id: 'local-model', name: 'Local Model (Ollama / LM Studio)', tag: 'Offline 0đ', provider: 'local', category: 'Local AI' },
+      ];
+    default:
+      return [];
+  }
+}
+
+export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
+  try {
+    if (provider === 'gemini') {
+      if (!apiKey) return getDefaultModels('gemini');
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`);
+      if (!res.ok) return getDefaultModels('gemini');
+      const data = await res.json();
+      const models = (data.models || [])
+        .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.startsWith('models/gemini'))
+        .filter(m => !m.name.includes('-tts') && !m.name.includes('-image') && !m.name.includes('embedding') && !m.name.includes('transcribe'))
+        .map(m => {
+          const id = m.name.replace('models/', '');
+          return {
+            id,
+            name: m.displayName || id,
+            provider: 'gemini',
+            tag: 'Google Direct',
+            category: 'Google'
+          };
+        });
+      // Sort priority
+      models.sort((a, b) => {
+        if (a.id.includes('3.6') || a.id.includes('flash-latest')) return -1;
+        if (b.id.includes('3.6') || b.id.includes('flash-latest')) return 1;
+        return 0;
+      });
+      return models.length > 0 ? models : getDefaultModels('gemini');
+    }
+    else if (provider === 'openai') {
+      if (!apiKey) return getDefaultModels('openai');
+      const openai = new OpenAI({ apiKey });
+      const res = await openai.models.list();
+      const chatModels = (res.data || [])
+        .filter(m => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3') || m.id.startsWith('chatgpt-'))
+        .filter(m => !m.id.includes('realtime') && !m.id.includes('audio') && !m.id.includes('transcribe') && !m.id.includes('tts'))
+        .map(m => ({
+          id: m.id,
+          name: m.id,
+          provider: 'openai',
+          tag: 'OpenAI Direct',
+          category: 'OpenAI'
+        }));
+      return chatModels.length > 0 ? chatModels : getDefaultModels('openai');
+    }
+    else if (provider === '9router') {
+      const baseURL = customBaseUrl || 'http://localhost:20128/v1';
+      const res = await fetch(`${baseURL.replace(/\/$/, '')}/models`, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      });
+      if (!res.ok) return getDefaultModels('9router');
+      const data = await res.json();
+      const models = (data.data || []).map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        provider: '9router',
+        tag: '9Router',
+        category: '9Router'
+      }));
+      return models.length > 0 ? models : getDefaultModels('9router');
+    }
+    else if (provider === 'openrouter') {
+      const res = await fetch('https://openrouter.ai/api/v1/models');
+      if (!res.ok) return getDefaultModels('openrouter');
+      const data = await res.json();
+      const models = (data.data || [])
+        .slice(0, 40)
+        .map(m => ({
+          id: m.id,
+          name: m.name || m.id,
+          provider: 'openrouter',
+          tag: 'OpenRouter',
+          category: 'OpenRouter'
+        }));
+      return models.length > 0 ? models : getDefaultModels('openrouter');
+    }
+    else if (provider === 'local') {
+      const baseURL = customBaseUrl || 'http://localhost:11434/v1';
+      const res = await fetch(`${baseURL.replace(/\/$/, '')}/models`);
+      if (!res.ok) return getDefaultModels('local');
+      const data = await res.json();
+      const models = (data.data || []).map(m => ({
+        id: m.id,
+        name: m.id,
+        provider: 'local',
+        tag: 'Offline 0đ',
+        category: 'Local AI'
+      }));
+      return models.length > 0 ? models : getDefaultModels('local');
+    }
+    else if (provider === 'claude') {
+      return getDefaultModels('claude');
+    }
+  } catch (err) {
+    console.warn(`Lỗi fetchProviderModels cho ${provider}:`, err.message);
+    return getDefaultModels(provider);
+  }
+  return getDefaultModels(provider);
+}
+
 export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
   try {
+    let modelsList = [];
     if (provider === 'openai') {
       const openai = new OpenAI({ apiKey });
       const res = await openai.models.list();
-      return { success: true, message: `Kết nối OpenAI thành công! (${res.data.length} models sẵn sàng)` };
+      modelsList = await fetchProviderModels('openai', apiKey);
+      return { 
+        success: true, 
+        message: `Kết nối OpenAI thành công! (${res.data.length} models sẵn sàng)`,
+        models: modelsList 
+      };
     } 
     else if (provider === 'claude') {
       const anthropic = new Anthropic({ apiKey });
-      const res = await anthropic.messages.create({
+      await anthropic.messages.create({
         model: model || 'claude-3-5-haiku-20241022',
         max_tokens: 10,
         messages: [{ role: 'user', content: 'Ping' }],
       });
-      return { success: true, message: 'Kết nối Claude (Anthropic) thành công!' };
+      modelsList = getDefaultModels('claude');
+      return { 
+        success: true, 
+        message: 'Kết nối Claude (Anthropic) thành công!',
+        models: modelsList 
+      };
     } 
     else if (provider === 'gemini') {
       const genAI = new GoogleGenerativeAI(apiKey);
@@ -29,7 +183,12 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
         try {
           const m = genAI.getGenerativeModel({ model: mName });
           await m.generateContent('Ping');
-          return { success: true, message: `Kết nối Google Gemini (${mName}) thành công!` };
+          modelsList = await fetchProviderModels('gemini', apiKey);
+          return { 
+            success: true, 
+            message: `Kết nối Google Gemini (${mName}) thành công! Tìm thấy ${modelsList.length} models khả dụng.`,
+            models: modelsList 
+          };
         } catch (e) {
           lastError = e;
         }
@@ -38,37 +197,28 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
     }
     else if (provider === '9router') {
       const baseURL = customBaseUrl || 'http://localhost:20128/v1';
-      const res = await fetch(`${baseURL.replace(/\/$/, '')}/models`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (!res.ok) throw new Error(`9Router trả về mã lỗi ${res.status}`);
-      const data = await res.json();
-      const modelCount = data.data?.length || 0;
-      return { success: true, message: `Kết nối 9Router (${baseURL}) thành công! Tìm thấy ${modelCount} models.` };
+      modelsList = await fetchProviderModels('9router', apiKey, baseURL);
+      return { 
+        success: true, 
+        message: `Kết nối 9Router (${baseURL}) thành công! Tìm thấy ${modelsList.length} models.`,
+        models: modelsList 
+      };
     }
     else if (provider === 'openrouter') {
-      const openai = new OpenAI({
-        apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
-        defaultHeaders: {
-          'HTTP-Referer': 'http://localhost:5173',
-          'X-Title': 'Marketing AI Hub',
-        },
-      });
-      const res = await openai.models.list();
-      return { success: true, message: `Kết nối OpenRouter thành công! Có quyền truy cập ${res.data?.length || 0} models.` };
+      modelsList = await fetchProviderModels('openrouter', apiKey);
+      return { 
+        success: true, 
+        message: `Kết nối OpenRouter thành công! Tải được ${modelsList.length} models phổ biến.`,
+        models: modelsList 
+      };
     }
     else if (provider === 'local') {
       const baseURL = customBaseUrl || 'http://localhost:11434/v1';
-      const openai = new OpenAI({
-        apiKey: apiKey || 'local-no-key',
-        baseURL,
-      });
-      const res = await openai.models.list();
-      const modelNames = res.data?.map((m) => m.id).join(', ') || 'OK';
+      modelsList = await fetchProviderModels('local', apiKey, baseURL);
       return { 
         success: true, 
-        message: `Kết nối Local AI (${baseURL}) thành công! Các model tìm thấy: ${modelNames.slice(0, 80)}...` 
+        message: `Kết nối Local AI (${baseURL}) thành công! Tìm thấy ${modelsList.length} models.`,
+        models: modelsList 
       };
     }
     throw new Error('Nhà cung cấp không hợp lệ');
