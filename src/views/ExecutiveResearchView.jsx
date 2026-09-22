@@ -18,6 +18,7 @@ export default function ExecutiveResearchView({
   researchContext, 
   onSaveAllResearch, 
   onNavigateToStrategy, 
+  onNavigateToCompetitor,
   onSyncToNotion 
 }) {
   const [formData, setFormData] = useState(() => {
@@ -272,20 +273,51 @@ export default function ExecutiveResearchView({
           </div>
         </div>
 
-        {/* Section 3: Đối thủ & Ưu đãi */}
+        {/* Section 3: Ưu đãi & Lời chào hàng */}
         <div className="space-y-3 pt-2">
-          <div className="border-b border-slate-100 pb-2">
+          <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              3. Đối Thủ Cạnh Tranh & Ưu Đãi (Tùy chọn)
+              3. Đề Xuất Giá Trị & Ưu Đãi (Offer)
             </h2>
+            {onNavigateToCompetitor && (
+              <button
+                type="button"
+                onClick={onNavigateToCompetitor}
+                className="text-[11px] text-slate-700 hover:text-slate-950 font-medium flex items-center gap-1 cursor-pointer"
+              >
+                <Swords className="h-3 w-3 text-slate-700" />
+                Mở Tình Báo Video Đối Thủ →
+              </button>
+            )}
+          </div>
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Swords className="h-4 w-4 text-slate-700 shrink-0" />
+              <span>
+                Phần <strong>Phân Tích Đối Thủ & Quét Video</strong> đã được tách riêng chuyên sâu: Bạn có thể dán link video, bóc tách transcript và AI viết kịch bản phản đòn ngay tại tab <strong>Tình Báo Video Đối Thủ</strong>.
+              </span>
+            </div>
+            {onNavigateToCompetitor && (
+              <button
+                type="button"
+                onClick={onNavigateToCompetitor}
+                className="px-2.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-semibold text-slate-800 hover:bg-slate-100 shrink-0 cursor-pointer"
+              >
+                Chuyển tab
+              </button>
+            )}
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+              Ưu đãi, chính sách bảo hành, cam kết hoặc quà tặng dự kiến của bạn:
+            </label>
             <textarea
               rows={3}
               value={formData.competitorAndOffer}
               onChange={(e) => handleInputChange('competitorAndOffer', e.target.value)}
-              placeholder="Tên đối thủ, điểm mạnh/yếu của họ hoặc ý tưởng quà tặng, chính sách cam kết dự kiến..."
+              placeholder="Chính sách dùng thử 30 ngày, tặng kèm ebook/khóa học, cam kết hoàn tiền 100%..."
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-sans"
             />
           </div>
@@ -538,11 +570,22 @@ export default function ExecutiveResearchView({
           {/* Section: 4. Competitor */}
           {(activeSection === 'all' || activeSection === 'competitor') && result.competitor && (
             <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-xs">
-              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                <Swords className="h-4 w-4 text-slate-700" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                  4. Nội Dung Đối Thủ & Góc Tiếp Cận
-                </h4>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <Swords className="h-4 w-4 text-slate-700" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    4. Nội Dung Đối Thủ & Tình Báo Video
+                  </h4>
+                </div>
+                {onNavigateToCompetitor && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToCompetitor}
+                    className="text-[11px] text-slate-700 hover:text-slate-950 font-medium flex items-center gap-1 cursor-pointer"
+                  >
+                    Xem Chi Tiết & Viết Kịch Bản →
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-700">{result.competitor.summary}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">

@@ -236,6 +236,7 @@ export default function App() {
               researchContext={researchContext}
               onSaveAllResearch={handleSaveAllResearch}
               onNavigateToStrategy={() => setActiveTab('strategy')}
+              onNavigateToCompetitor={() => setActiveTab('competitor_videos')}
               onSyncToNotion={handleSyncToNotion}
             />
           )}

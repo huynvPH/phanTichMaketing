@@ -14,7 +14,10 @@ import {
   ShieldAlert, 
   Compass, 
   Layers, 
-  CheckCircle2
+  CheckCircle2,
+  Edit3,
+  Video,
+  Volume2
 } from 'lucide-react';
 
 export default function CompetitorVideoView({ 
@@ -24,9 +27,10 @@ export default function CompetitorVideoView({
   onNavigateToStrategy, 
   onSyncToNotion 
 }) {
-  const [inputMode, setInputMode] = useState('links'); // 'links' | 'scripts' | 'upload'
+  const [inputMode, setInputMode] = useState('links'); // 'links' | 'scripts' | 'direct' | 'upload'
   const [linksText, setLinksText] = useState('');
   const [scriptsText, setScriptsText] = useState('');
+  const [directAnalysisText, setDirectAnalysisText] = useState('');
   const [targetIndustry, setTargetIndustry] = useState('');
   const [loading, setLoading] = useState(false);
   const [processingStep, setProcessingStep] = useState(1);
@@ -52,6 +56,7 @@ export default function CompetitorVideoView({
     if (window.confirm('Bạn có chắc chắn muốn làm mới phần Tình Báo Video Đối Thủ?')) {
       setLinksText('');
       setScriptsText('');
+      setDirectAnalysisText('');
       setResult(null);
       try {
         localStorage.removeItem('marketing_competitor_video_result');
@@ -77,9 +82,10 @@ export default function CompetitorVideoView({
   const handleStartPipeline = async () => {
     const hasLinks = detectedLinks.length > 0;
     const hasScripts = scriptsText.trim().length > 0;
+    const hasDirect = directAnalysisText.trim().length > 0;
 
-    if (!hasLinks && !hasScripts) {
-      alert('Vui lòng dán ít nhất 1 link video/kênh hoặc dán nội dung kịch bản video đối thủ!');
+    if (!hasLinks && !hasScripts && !hasDirect) {
+      alert('Vui lòng dán link video, transcript hoặc viết bài/ghi chú phân tích đối thủ!');
       return;
     }
 
@@ -113,6 +119,7 @@ export default function CompetitorVideoView({
         videoLinks: hasLinks ? detectedLinks : [],
         parsedVideos: parsedLinksData,
         manualScriptsOrCaptions: hasScripts ? scriptsText : '',
+        directAnalysis: hasDirect ? directAnalysisText : '',
         industry: targetIndustry || 'Chưa xác định',
       };
 
@@ -234,6 +241,19 @@ export default function CompetitorVideoView({
 
             <button
               type="button"
+              onClick={() => setInputMode('direct')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                inputMode === 'direct'
+                  ? 'btn-brand text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              Viết Phân Tích Trực Tiếp
+            </button>
+
+            <button
+              type="button"
               onClick={() => setInputMode('upload')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
                 inputMode === 'upload'
@@ -289,6 +309,25 @@ export default function CompetitorVideoView({
               value={scriptsText}
               onChange={(e) => setScriptsText(e.target.value)}
               placeholder="Video 1: Cảnh mở đầu bôi kem lên mặt, câu thoại 'Đừng bao giờ mua kem này nếu bạn sợ hết mụn...', sau đó đưa giấy kiểm nghiệm...&#10;&#10;Video 2: Review so sánh giữa 2 sản phẩm A và B..."
+              className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-sans"
+            />
+          </div>
+        )}
+
+        {/* Mode 3: Viết phân tích trực tiếp */}
+        {inputMode === 'direct' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <label className="font-medium">
+                Tự viết hoặc dán nội dung phân tích đối thủ cạnh tranh & chiến dịch của họ:
+              </label>
+              <span className="text-[11px] text-slate-400">Viết tự do / Không cần link video</span>
+            </div>
+            <textarea
+              rows={7}
+              value={directAnalysisText}
+              onChange={(e) => setDirectAnalysisText(e.target.value)}
+              placeholder="• Tên các đối thủ đầu ngành: Brand X, Brand Y...&#10;• Định dạng video họ hay làm: Dạng drama người thứ 3, bóc phốt mỹ phẩm trộn, chuyên gia da liễu mặc áo blouse...&#10;• Điểm yếu của đối thủ: Khách hay chê giao hàng chậm, mùi nồng, bao bì dễ vỡ, dịch vụ CSKH kém...&#10;• Điểm mạnh: Giá rẻ, livestream tặng quà dồn dập, hook mở đầu giật gân...&#10;• Ý tưởng muốn AI khai phá kịch bản phản đòn..."
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-sans"
             />
           </div>
@@ -410,6 +449,28 @@ export default function CompetitorVideoView({
               {result.summary || 'Đã phân tích toàn bộ dữ liệu video đối thủ.'}
             </p>
           </div>
+
+          {/* Strategic Analysis Article */}
+          {result.strategicAnalysisArticle && (
+            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-xs">
+              <div className="border-b border-slate-100 pb-2 flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Bài Viết Phân Tích Chiến Lược Đối Thủ (Bóc Tách Tử Huyệt)
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => copyText(result.strategicAnalysisArticle, 'article')}
+                  className="text-slate-500 hover:text-slate-900 transition text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                >
+                  {copiedIndex === 'article' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  Sao chép bài viết
+                </button>
+              </div>
+              <div className="text-xs text-slate-800 leading-relaxed font-sans space-y-2 bg-slate-50/70 p-4 rounded-lg border border-slate-200 whitespace-pre-line">
+                {result.strategicAnalysisArticle}
+              </div>
+            </div>
+          )}
 
           {/* 1. Video Motif Clustering */}
           {result.videoClusters && result.videoClusters.length > 0 && (
@@ -581,6 +642,86 @@ export default function CompetitorVideoView({
                     <strong>Kêu gọi hành động:</strong> {result.counterAttackScript.callToAction}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* 6. Kịch Bản Quay Dựng 60s Hoàn Chỉnh (Viết Chi Tiết) */}
+          {result.fullProductionScript && (
+            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-xs">
+              <div className="border-b border-slate-100 pb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Film className="h-4 w-4 text-slate-700" />
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      6. Kịch Bản Quay Dựng 60 Giây Chi Tiết (Sẵn Sàng Bấm Máy)
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {result.fullProductionScript.title} {result.fullProductionScript.concept && `• ${result.fullProductionScript.concept}`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const scenesText = (result.fullProductionScript.scenes || [])
+                      .map((s, idx) => `CẢNH ${idx + 1} [${s.time}] - ${s.stage}\n• Hình ảnh/Góc quay: ${s.visual}\n• Lời thoại: "${s.audio}"\n• Chữ màn hình: ${s.textOnScreen}\n• Âm thanh: ${s.soundEffect || 'Nhạc nền'}`)
+                      .join('\n\n');
+                    copyText(`${result.fullProductionScript.title}\nConcept: ${result.fullProductionScript.concept || ''}\n\n${scenesText}`, 'full_script');
+                  }}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                >
+                  {copiedIndex === 'full_script' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  Sao Chép Toàn Bộ Kịch Bản Quay
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {(result.fullProductionScript.scenes || []).map((sc, sci) => (
+                  <div key={sci} className="p-4 rounded-lg border border-slate-200 bg-slate-50/60 space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded font-mono font-bold text-slate-900 bg-white border border-slate-200 text-[11px]">
+                          {sc.time}
+                        </span>
+                        <span className="font-bold text-slate-900 uppercase tracking-wide text-[11px]">
+                          {sc.stage}
+                        </span>
+                      </div>
+                      {sc.soundEffect && (
+                        <span className="text-[10px] text-slate-500 italic">
+                          🎵 {sc.soundEffect}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                          Khung Hình & Hành Động (Visual):
+                        </span>
+                        <p className="text-slate-700 leading-relaxed bg-white p-2.5 rounded border border-slate-100">
+                          {sc.visual}
+                        </p>
+                        {sc.textOnScreen && (
+                          <div className="text-[11px] text-slate-600 font-medium pt-0.5">
+                            <span className="text-slate-400 font-normal">Text màn hình: </span>
+                            <span className="font-bold text-slate-900">"{sc.textOnScreen}"</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                          Lời Thoại Nhân Vật (Audio / Voice):
+                        </span>
+                        <p className="text-slate-900 font-semibold italic leading-relaxed bg-white p-2.5 rounded border border-slate-100">
+                          "{sc.audio}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
