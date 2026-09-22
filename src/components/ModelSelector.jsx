@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Cpu, ChevronDown, Check, Zap, Server, Cloud } from 'lucide-react';
 
 export const AI_MODELS = [
-  { id: 'gemini-2.5-flash', provider: 'gemini', name: 'Gemini 2.5 Flash (Google Free)', tag: 'Google Miễn Phí', category: 'Trực tiếp' },
+  { id: 'gemini-3.6-flash', provider: 'gemini', name: 'Gemini 3.6 Flash (Google Free)', tag: 'Google Miễn Phí', category: 'Trực tiếp' },
   { id: 'gpt-4o', provider: 'openai', name: 'ChatGPT (GPT-4o OpenAI)', tag: 'OpenAI Direct', category: 'Trực tiếp' },
   { id: 'claude-3-5-sonnet-20241022', provider: 'claude', name: 'Claude 3.5 Sonnet', tag: 'Anthropic Direct', category: 'Trực tiếp' },
   { id: 'local-model', provider: 'local', name: 'Local AI (Ollama / LM Studio)', tag: 'Offline 0đ', category: 'Cục bộ' },

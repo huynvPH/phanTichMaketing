@@ -45,7 +45,7 @@ function loadConfig() {
     notionParentId: process.env.NOTION_PARENT_ID || fileData.notionParentId || '',
     notionParentType: process.env.NOTION_PARENT_TYPE || fileData.notionParentType || 'page',
     defaultProvider: process.env.DEFAULT_PROVIDER || fileData.defaultProvider || 'gemini',
-    defaultModel: process.env.DEFAULT_MODEL || fileData.defaultModel || 'gemini-2.5-flash',
+    defaultModel: process.env.DEFAULT_MODEL || fileData.defaultModel || 'gemini-3.6-flash',
   };
 }
 
@@ -101,7 +101,7 @@ app.get('/api/config', (req, res) => {
     notionParentId: ck.notionParentId || cfg.notionParentId || '',
     notionParentType: ck.notionParentType || cfg.notionParentType || 'page',
     defaultProvider: cfg.defaultProvider || 'gemini',
-    defaultModel: cfg.defaultModel || 'gemini-2.5-flash',
+    defaultModel: cfg.defaultModel || 'gemini-3.6-flash',
   });
 });
 

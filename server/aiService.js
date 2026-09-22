@@ -20,10 +20,21 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
     } 
     else if (provider === 'gemini') {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const targetModel = (model === 'gemini-1.5-flash' || !model) ? 'gemini-2.5-flash' : model;
-      const m = genAI.getGenerativeModel({ model: targetModel });
-      const res = await m.generateContent('Ping');
-      return { success: true, message: 'Kết nối Google Gemini thành công!' };
+      const candidateModels = [
+        (model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' || !model) ? 'gemini-3.6-flash' : model,
+        'gemini-flash-latest'
+      ];
+      let lastError;
+      for (const mName of candidateModels) {
+        try {
+          const m = genAI.getGenerativeModel({ model: mName });
+          await m.generateContent('Ping');
+          return { success: true, message: `Kết nối Google Gemini (${mName}) thành công!` };
+        } catch (e) {
+          lastError = e;
+        }
+      }
+      throw lastError;
     }
     else if (provider === '9router') {
       const baseURL = customBaseUrl || 'http://localhost:20128/v1';
@@ -164,17 +175,30 @@ export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt
 
   if (provider === 'gemini') {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const targetModel = (model === 'gemini-1.5-flash' || !model) ? 'gemini-2.5-flash' : model;
-    const geminiModel = genAI.getGenerativeModel({
-      model: targetModel,
-      systemInstruction: systemPrompt || undefined,
-      generationConfig: {
-        temperature: 0.7,
-        ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
-      },
-    });
-    const result = await geminiModel.generateContent(userPrompt);
-    return result.response.text();
+    const candidateModels = [
+      (model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' || !model) ? 'gemini-3.6-flash' : model,
+      'gemini-flash-latest',
+    ];
+
+    let lastError;
+    for (const targetModel of candidateModels) {
+      try {
+        const geminiModel = genAI.getGenerativeModel({
+          model: targetModel,
+          systemInstruction: systemPrompt || undefined,
+          generationConfig: {
+            temperature: 0.7,
+            ...(jsonMode ? { responseMimeType: 'application/json' } : {}),
+          },
+        });
+        const result = await geminiModel.generateContent(userPrompt);
+        return result.response.text();
+      } catch (err) {
+        lastError = err;
+        console.warn(`Gemini model ${targetModel} gặp lỗi: ${err.message}. Thử model dự phòng...`);
+      }
+    }
+    throw lastError;
   }
 
   throw new Error(`Nhà cung cấp ${provider} chưa được hỗ trợ`);
