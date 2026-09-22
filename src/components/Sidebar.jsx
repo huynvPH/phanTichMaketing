@@ -10,7 +10,7 @@ export const TAB_GROUPS = [
   {
     title: 'TẦNG 1: CUSTOMER RESEARCH',
     badge: 'Nghiên Cứu',
-    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
     tabs: [
       {
         id: 'all_in_one',
@@ -23,7 +23,7 @@ export const TAB_GROUPS = [
   {
     title: 'TẦNG 2: STRATEGY',
     badge: 'Chiến Lược',
-    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     tabs: [
       {
         id: 'strategy',
@@ -36,7 +36,7 @@ export const TAB_GROUPS = [
   {
     title: 'TẦNG 3: EXECUTION',
     badge: 'Kế Hoạch',
-    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     tabs: [
       {
         id: 'calendar',
@@ -49,7 +49,7 @@ export const TAB_GROUPS = [
   {
     title: 'HỆ THỐNG',
     badge: 'Xuất',
-    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
     tabs: [
       {
         id: 'notion',
