@@ -291,18 +291,6 @@ export default function ExecutiveResearchView({
           </div>
         </div>
 
-        {/* Submit Button Row */}
-        <div className="pt-2 flex items-center justify-end">
-          <button
-            onClick={handleAnalyzeAll}
-            disabled={loading}
-            type="button"
-            className="w-full sm:w-auto px-6 py-2.5 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
-          >
-            <Sparkles className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Đang phân tích 5 nhánh...' : 'Phân tích Nghiên cứu Khách hàng'}
-          </button>
-        </div>
       </div>
 
       {/* Loading state indicator */}

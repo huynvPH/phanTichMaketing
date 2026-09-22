@@ -169,19 +169,8 @@ export default function ContentCalendarView({
           </div>
         </div>
 
-        <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-          <span className="text-slate-500">
-            Mỗi bài đăng sẽ tự động truy vết về đúng 1 Trụ cột (Pillar) và 1 Trích dẫn VoC thực tế.
-          </span>
-          <button
-            onClick={handleGenerateCalendar}
-            disabled={loading}
-            type="button"
-            className="px-5 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
-          >
-            <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Đang tạo lịch...' : `Tạo Lịch ${selectedChannel}`}
-          </button>
+        <div className="pt-2 border-t border-slate-100 text-xs text-slate-500">
+          Mỗi bài đăng sẽ tự động truy vết về đúng 1 Trụ cột (Pillar) và 1 Trích dẫn VoC thực tế.
         </div>
       </div>
 

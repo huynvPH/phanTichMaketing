@@ -232,17 +232,6 @@ export default function ContentStrategyView({
           </div>
         </div>
 
-        <div className="pt-2 flex justify-end">
-          <button
-            onClick={handleGenerateStrategy}
-            disabled={loading}
-            type="button"
-            className="w-full sm:w-auto px-5 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
-          >
-            <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Đang tổng hợp...' : 'Tổng Hợp Chiến Lược'}
-          </button>
-        </div>
       </div>
 
       {/* Loading state */}
