@@ -83,15 +83,6 @@ export default function ContentStrategyView({
     }
   };
 
-  // Thống kê insights đã có từ Tầng 1
-  const hasResearchData = Boolean(
-    researchContext?.voc 
-    || researchContext?.search 
-    || researchContext?.competitor 
-    || researchContext?.offer 
-    || researchContext?.executive
-  );
-
   const handleGenerateStrategy = async () => {
     setLoading(true);
     try {
@@ -173,17 +164,6 @@ export default function ContentStrategyView({
         </div>
       </div>
 
-      {/* Căn cứ dữ liệu Tầng 1 */}
-      <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${hasResearchData ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-          <span className="text-slate-700 font-medium">
-            {hasResearchData 
-              ? 'Đã kết nối dữ liệu Nghiên cứu Khách hàng từ Tầng 1' 
-              : 'Chưa có dữ liệu từ Tầng 1 (AI sẽ dùng thông tin định vị bên dưới)'}
-          </span>
-        </div>
-      </div>
 
       {/* Form cấu hình định vị thương hiệu (Đơn giản, sạch sẽ) */}
       <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-xs">
