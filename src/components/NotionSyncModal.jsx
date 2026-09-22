@@ -195,7 +195,7 @@ export default function NotionSyncModal({ isOpen, onClose, exportData, config, o
             <button
               onClick={handleSync}
               disabled={syncing}
-              className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition"
+              className="px-4 py-1.5 rounded-lg btn-brand text-white font-semibold transition"
             >
               {syncing ? 'Đang đẩy...' : 'Xác Nhận Xuất'}
             </button>

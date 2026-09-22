@@ -165,7 +165,7 @@ export default function ContentStrategyView({
             onClick={handleGenerateStrategy}
             disabled={loading}
             type="button"
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tổng hợp...' : 'Bắt đầu Lập Chiến Lược'}
@@ -237,7 +237,7 @@ export default function ContentStrategyView({
             onClick={handleGenerateStrategy}
             disabled={loading}
             type="button"
-            className="w-full sm:w-auto px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="w-full sm:w-auto px-5 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tổng hợp...' : 'Tổng Hợp Chiến Lược'}
@@ -438,7 +438,7 @@ export default function ContentStrategyView({
               <button
                 onClick={onNavigateToCalendar}
                 type="button"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 cursor-pointer shadow-xs"
+                className="px-5 py-2.5 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 Tiếp tục: Sang Tầng 3 (Lập Lịch Đăng Bài)
                 <ArrowRight className="h-4 w-4" />

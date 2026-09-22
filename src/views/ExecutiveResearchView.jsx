@@ -174,7 +174,7 @@ export default function ExecutiveResearchView({
             onClick={handleAnalyzeAll}
             disabled={loading}
             type="button"
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang phân tích...' : 'Bắt đầu Phân tích'}
@@ -297,7 +297,7 @@ export default function ExecutiveResearchView({
             onClick={handleAnalyzeAll}
             disabled={loading}
             type="button"
-            className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="w-full sm:w-auto px-6 py-2.5 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang phân tích 5 nhánh...' : 'Phân tích Nghiên cứu Khách hàng'}
@@ -389,7 +389,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('all')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'all'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -399,7 +399,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('framing')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'framing'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -409,7 +409,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('search')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'search'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -419,7 +419,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('voc')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'voc'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -429,7 +429,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('competitor')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'competitor'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -439,7 +439,7 @@ export default function ExecutiveResearchView({
               onClick={() => setActiveSection('offer')}
               className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
                 activeSection === 'offer'
-                  ? 'bg-slate-900 text-white font-semibold'
+                  ? 'btn-brand text-white font-semibold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -622,7 +622,7 @@ export default function ExecutiveResearchView({
               <button
                 onClick={onNavigateToStrategy}
                 type="button"
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 cursor-pointer shadow-xs"
+                className="px-5 py-2.5 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 Tiếp tục: Sang Tầng 2 (Chiến Lược Nội Dung)
                 <ArrowRight className="h-4 w-4" />

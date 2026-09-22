@@ -122,7 +122,7 @@ export default function ContentCalendarView({
             onClick={handleGenerateCalendar}
             disabled={loading}
             type="button"
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tạo lịch...' : 'Bắt đầu Tạo Lịch'}
@@ -144,7 +144,7 @@ export default function ContentCalendarView({
                   onClick={() => setSelectedChannel(ch)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition cursor-pointer ${
                     selectedChannel === ch
-                      ? 'bg-slate-900 text-white border-slate-900'
+                      ? 'btn-brand text-white border-transparent'
                       : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
                   }`}
                 >
@@ -177,7 +177,7 @@ export default function ContentCalendarView({
             onClick={handleGenerateCalendar}
             disabled={loading}
             type="button"
-            className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="px-5 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tạo lịch...' : `Tạo Lịch ${selectedChannel}`}

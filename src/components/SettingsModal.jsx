@@ -424,7 +424,7 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition"
+            className="px-4 py-1.5 rounded-lg btn-brand text-white font-semibold transition"
           >
             {saving ? 'Đang lưu...' : 'Lưu Cấu Hình'}
           </button>
