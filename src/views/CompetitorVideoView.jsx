@@ -33,6 +33,7 @@ export default function CompetitorVideoView({
   const [directAnalysisText, setDirectAnalysisText] = useState('');
   const [targetIndustry, setTargetIndustry] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingTranscript, setFetchingTranscript] = useState(false);
   const [processingStep, setProcessingStep] = useState(1);
   const [copiedIndex, setCopiedIndex] = useState(null);
 
@@ -77,6 +78,44 @@ export default function CompetitorVideoView({
       }
     };
     reader.readAsText(file);
+  };
+
+  // Tự động cào Transcript từ các link YouTube/Shorts đã nhập
+  const handleAutoFetchTranscripts = async () => {
+    if (detectedLinks.length === 0) {
+      alert('Vui lòng dán ít nhất 1 link video YouTube hoặc YouTube Shorts.');
+      return;
+    }
+
+    setFetchingTranscript(true);
+    try {
+      const res = await fetch('/api/competitor/fetch-transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: detectedLinks }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Lỗi khi trích xuất phụ đề.');
+      }
+
+      if (data.combinedText) {
+        setScriptsText((prev) => {
+          if (prev.trim()) {
+            return `${prev}\n\n=== PHỤ ĐỀ / TRANSCRIPT TỰ ĐỘNG CÀO ===\n${data.combinedText}`;
+          }
+          return data.combinedText;
+        });
+        setInputMode('scripts');
+        alert(`Đã trích xuất thành công lời thoại của ${data.successCount}/${data.total} video! Đã tự động chuyển sang tab Lời Thoại.`);
+      } else {
+        alert('Không tìm thấy phụ đề cho các video đã nhập (video có thể chưa bật phụ đề).');
+      }
+    } catch (err) {
+      alert(`Lỗi khi lấy phụ đề: ${err.message}`);
+    } finally {
+      setFetchingTranscript(false);
+    }
   };
 
   const handleStartPipeline = async () => {
@@ -295,6 +334,25 @@ export default function CompetitorVideoView({
               placeholder="https://www.tiktok.com/@doithu/video/739123456789...&#10;https://www.tiktok.com/@kenhdoithu&#10;https://www.youtube.com/shorts/abcd1234...&#10;https://www.facebook.com/reel/12345678..."
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-mono"
             />
+            
+            {/* Quick Action: Auto Fetch Transcripts */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200/70">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoFetchTranscripts}
+                  disabled={fetchingTranscript || detectedLinks.length === 0}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
+                  title="Tự động bóc tách phụ đề/lời thoại từ YouTube/Shorts"
+                >
+                  <Sparkles className={`w-3.5 h-3.5 ${fetchingTranscript ? 'animate-spin' : ''}`} />
+                  {fetchingTranscript ? 'Đang trích xuất Transcript...' : '⚡ Cào Lời Thoại / Transcript Tự Động (YouTube/Shorts)'}
+                </button>
+              </div>
+              <span className="text-[11px] text-amber-900/80 font-medium">
+                Tự động lấy toàn bộ lời thoại và nạp vào kịch bản để AI phân tích chuẩn xác
+              </span>
+            </div>
           </div>
         )}
 

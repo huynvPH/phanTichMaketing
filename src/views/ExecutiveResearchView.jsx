@@ -10,7 +10,9 @@ import {
   MessageSquare, 
   Swords, 
   Tag, 
-  Layers
+  Layers,
+  Download,
+  FileText
 } from 'lucide-react';
 
 export default function ExecutiveResearchView({ 
@@ -144,8 +146,97 @@ export default function ExecutiveResearchView({
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
+  // Xuất toàn bộ báo cáo nghiên cứu ra file Markdown (.md)
+  const handleExportMarkdown = () => {
+    if (!result) return;
+    const pName = formData.productName || 'San_Pham';
+    const lines = [
+      `# 📊 BÁO CÁO NGHIÊN CỨU CHIẾN LƯỢC: ${formData.productName || 'Chưa đặt tên'}`,
+      `- Ngành hàng: ${formData.industry || 'N/A'}`,
+      `- Khách hàng mục tiêu: ${formData.targetAudience || 'N/A'}`,
+      `- Ngày xuất bản: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`,
+      '',
+      '---',
+      '',
+      '## 🎯 1. Tóm Tắt Dành Cho Cấp Quản Lý (Executive Summary)',
+      result.executiveSummary || 'N/A',
+      '',
+      '### 💡 Ưu Tiên Chiến Lược Hàng Đầu:',
+      ...(result.topStrategicPriorities || []).map((p, i) => `${i + 1}. ${p}`),
+      '',
+      '---',
+      '',
+      '## 🧭 2. Định Khung Đề Bài (Framing)',
+      `- **Mục tiêu quyết định cốt lõi:** ${result.framing?.clarifiedGoal || 'N/A'}`,
+      '',
+      '**Dữ kiện thực tế chắc chắn:**',
+      ...(result.framing?.solidFacts || []).map(f => `- ${f}`),
+      '',
+      '**Giả định then chốt cần kiểm chứng:**',
+      ...(result.framing?.hypotheses || []).map(h => `- ${h}`),
+      '',
+      '**Câu hỏi nghiên cứu then chốt:**',
+      ...(result.framing?.criticalQuestions || []).map(q => `- ${q}`),
+      '',
+      '---',
+      '',
+      '## 🔍 3. Nhu Cầu Tìm Kiếm (Search Demand)',
+      result.search?.summary || '',
+      '',
+      ...(result.search?.intentClusters || []).map(c => `### Chủ đề: ${c.theme} (${c.searchIntent} - ${c.stage})\n- Câu hỏi tiêu biểu: ${(c.questions || []).join(', ')}\n- Định dạng đề xuất: ${c.recommendedContent || 'N/A'}`),
+      '',
+      '---',
+      '',
+      '## 💬 4. Tiếng Nói Khách Hàng (Voice of Customer - VoC)',
+      result.voc?.summary || '',
+      '',
+      '### Nỗi đau & Vấn đề nhức nhối (Pain Points):',
+      ...(result.voc?.painPoints || []).map(p => `- **${p.pain}** (Mức độ: ${p.level})\n  > Trích dẫn: "${p.quote}"`),
+      '',
+      '### Rào cản hoài nghi (Objections):',
+      ...(result.voc?.objections || []).map(o => `- **${o.objection}**\n  > Trích dẫn: "${o.quote}"`),
+      '',
+      '### Động lực mua hàng (Buying Triggers):',
+      ...(result.voc?.buyingTriggers || []).map(b => `- **${b.trigger}**\n  > Trích dẫn: "${b.quote}"`),
+      '',
+      '### Gợi ý Hooks mở đầu video/bài viết:',
+      ...(result.voc?.marketingHooks || []).map((h, i) => `${i + 1}. "${h}"`),
+      '',
+      '---',
+      '',
+      '## ⚔️ 5. Đối Thủ Cạnh Tranh & Góc Tiếp Cận Mới',
+      result.competitor?.summary || '',
+      '',
+      '**Định dạng chiến thắng của đối thủ:**',
+      ...(result.competitor?.winningFormats || []).map(w => `- **${w.format}**: ${w.reason}`),
+      '',
+      '**Khoảng trống Đại Dương Xanh (Blue Ocean):**',
+      ...(result.competitor?.blueOceanAngles || []).map(b => `- **${b.angle}**: ${b.executionIdea}`),
+      '',
+      '---',
+      '',
+      '## 🎁 6. Ưu Đãi & Lời Chào Hàng Grand Slam Offer',
+      `- **Gói ưu đãi cốt lõi:** ${result.offer?.improvedOfferIdea?.coreOffer || 'N/A'}`,
+      `- **Quà tặng kèm:** ${(result.offer?.improvedOfferIdea?.bonuses || []).join(', ')}`,
+      `- **Đảo ngược rủi ro / Cam kết:** ${result.offer?.improvedOfferIdea?.riskReversal || 'N/A'}`,
+      `- **Tính cấp bách / Lý do mua ngay:** ${result.offer?.improvedOfferIdea?.urgencyScarcity || 'N/A'}`,
+    ];
+
+    const mdContent = lines.join('\n');
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeName = pName.replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
+    link.href = url;
+    link.download = `Bao_Cao_${safeName}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Title Header */}
       <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -342,25 +433,35 @@ export default function ExecutiveResearchView({
       {result && !loading && (
         <div className="space-y-6 pt-4">
           {/* Header Bar of Results */}
-          <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">
+          <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="shrink-0">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-0.5">
                 Báo Cáo Nghiên Cứu
               </span>
-              <h2 className="text-base sm:text-lg font-bold text-white">
+              <h2 className="text-base sm:text-lg font-bold text-white whitespace-nowrap">
                 Bức Tranh Chiến Lược Khách Hàng
               </h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto pb-1 md:pb-0">
+              <button
+                onClick={handleExportMarkdown}
+                type="button"
+                className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+                title="Tải toàn bộ báo cáo nghiên cứu dạng file Markdown (.md)"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Tải Báo Cáo (.md)</span>
+              </button>
+
               {onSyncToNotion && (
                 <button
                   onClick={() => onSyncToNotion('Nghiên Cứu Khách Hàng', formData, result)}
                   type="button"
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Share2 className="h-3.5 w-3.5" />
-                  Đồng bộ Notion
+                  <span>Đồng bộ Notion</span>
                 </button>
               )}
 
@@ -368,10 +469,10 @@ export default function ExecutiveResearchView({
                 <button
                   onClick={onNavigateToStrategy}
                   type="button"
-                  className="px-4 py-1.5 rounded-lg bg-white text-slate-900 hover:bg-slate-100 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-2 rounded-lg bg-white text-slate-900 hover:bg-slate-100 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap shrink-0"
                 >
-                  Sang Tầng 2: Lập Chiến Lược
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span>Sang Tầng 2: Lập Chiến Lược</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-slate-700" />
                 </button>
               )}
             </div>

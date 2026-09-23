@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
 import NotionSyncModal from './components/NotionSyncModal';
+import ProjectSelectorModal from './components/ProjectSelectorModal';
 import ExecutiveResearchView from './views/ExecutiveResearchView';
 import FramingView from './views/FramingView';
 import SearchDemandView from './views/SearchDemandView';
@@ -13,6 +14,12 @@ import OfferView from './views/OfferView';
 import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
+import { 
+  getAllProjects, 
+  getActiveProjectId, 
+  getProjectData, 
+  saveProjectData 
+} from './utils/projectManager';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('all_in_one'); // Mặc định mở Form Tổng Hợp Tầng 1 cho Sếp
@@ -34,46 +41,37 @@ export default function App() {
   const [isNotionSyncOpen, setIsNotionSyncOpen] = useState(false);
   const [exportData, setExportData] = useState(null);
 
+  const [activeProjectId, setActiveProjectId] = useState(() => getActiveProjectId());
+  const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
+
+  const activeProjectName = (() => {
+    const list = getAllProjects();
+    const found = list.find((p) => p.id === activeProjectId);
+    return found?.name || 'Dự án Nghiên cứu';
+  })();
+
   const [toastMessage, setToastMessage] = useState('');
 
-  // Shared research context & strategy across all views (Mặc định để trống sạch sẽ)
+  // Shared research context & strategy across all views (nạp theo từng dự án)
   const [researchContext, setResearchContext] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_research_context');
-      return saved ? JSON.parse(saved) : {
-        voc: null,
-        search: null,
-        competitor: null,
-        offer: null,
-        framing: null,
-      };
-    } catch {
-      return {
-        voc: null,
-        search: null,
-        competitor: null,
-        offer: null,
-        framing: null,
-      };
-    }
+    const projData = getProjectData(getActiveProjectId());
+    return projData.researchContext || {
+      voc: null,
+      search: null,
+      competitor: null,
+      offer: null,
+      framing: null,
+    };
   });
 
   const [strategyData, setStrategyData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_brand_strategy');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+    const projData = getProjectData(getActiveProjectId());
+    return projData.strategyData || null;
   });
 
   const [calendarData, setCalendarData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_content_calendar');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
+    const projData = getProjectData(getActiveProjectId());
+    return projData.calendarData || null;
   });
 
   const showToast = (msg) => {
@@ -83,12 +81,44 @@ export default function App() {
     }, 4000);
   };
 
+  // Chuyển đổi dự án
+  const handleProjectSwitched = (newProjId) => {
+    setActiveProjectId(newProjId);
+    const pData = getProjectData(newProjId);
+    const updatedCtx = pData.researchContext || {
+      voc: null,
+      search: null,
+      competitor: null,
+      offer: null,
+      framing: null,
+    };
+    setResearchContext(updatedCtx);
+    setStrategyData(pData.strategyData || null);
+    setCalendarData(pData.calendarData || null);
+
+    // Đồng bộ legacy keys
+    try {
+      localStorage.setItem('marketing_research_context', JSON.stringify(updatedCtx));
+      localStorage.setItem('marketing_brand_strategy', JSON.stringify(pData.strategyData || null));
+      localStorage.setItem('marketing_content_calendar', JSON.stringify(pData.calendarData || null));
+    } catch {}
+
+    const list = getAllProjects();
+    const found = list.find((p) => p.id === newProjId);
+    showToast(`Đã chuyển sang dự án: "${found?.name || 'Mới'}"`);
+  };
+
   const handleUpdateResearch = (moduleName, data) => {
     setResearchContext((prev) => {
       const updated = { ...prev, [moduleName]: data };
       try {
         localStorage.setItem('marketing_research_context', JSON.stringify(updated));
       } catch {}
+      saveProjectData(activeProjectId, {
+        researchContext: updated,
+        strategyData,
+        calendarData,
+      });
       return updated;
     });
   };
@@ -135,6 +165,11 @@ export default function App() {
       try {
         localStorage.setItem('marketing_research_context', JSON.stringify(updated));
       } catch {}
+      saveProjectData(activeProjectId, {
+        researchContext: updated,
+        strategyData,
+        calendarData,
+      });
       return updated;
     });
     showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
@@ -155,6 +190,11 @@ export default function App() {
       try {
         localStorage.setItem('marketing_research_context', JSON.stringify(updated));
       } catch {}
+      saveProjectData(activeProjectId, {
+        researchContext: updated,
+        strategyData,
+        calendarData,
+      });
       return updated;
     });
     showToast('Đã lưu dữ liệu Tình báo Video Đối thủ vào Tầng 1 và đồng bộ sang Chiến lược!');
@@ -165,6 +205,11 @@ export default function App() {
     try {
       localStorage.setItem('marketing_brand_strategy', JSON.stringify(newStrategy));
     } catch {}
+    saveProjectData(activeProjectId, {
+      researchContext,
+      strategyData: newStrategy,
+      calendarData,
+    });
     showToast('Đã cập nhật và lưu Chiến lược Nội dung thành công!');
   };
 
@@ -173,6 +218,11 @@ export default function App() {
     try {
       localStorage.setItem('marketing_content_calendar', JSON.stringify(newCalendar));
     } catch {}
+    saveProjectData(activeProjectId, {
+      researchContext,
+      strategyData,
+      calendarData: newCalendar,
+    });
     showToast('Đã cập nhật Lịch Nội dung Đa kênh thành công!');
   };
 
@@ -221,6 +271,8 @@ export default function App() {
         currentModel={currentModel}
         onModelChange={handleModelChange}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        activeProjectName={activeProjectName}
+        onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
       />
 
       {/* Main Layout */}
@@ -346,6 +398,12 @@ export default function App() {
         exportData={exportData}
         config={config}
         onOpenSettings={() => setIsSettingsOpen(true)}
+      />
+
+      <ProjectSelectorModal
+        isOpen={isProjectSelectorOpen}
+        onClose={() => setIsProjectSelectorOpen(false)}
+        onProjectSwitched={handleProjectSwitched}
       />
     </div>
   );

@@ -18,11 +18,21 @@ Hệ thống công cụ Tình báo Cạnh tranh & Nghiên cứu Thị trường 
    - **Nhánh 3 - Nội dung đối thủ (Competitor Angles):** Bóc tách các định dạng chiến thắng (Winning Formats), cảnh báo chủ đề đã bão hòa (Red Ocean) và tìm góc tiếp cận mới (Blue Ocean).
    - **Nhánh 4 - Quảng cáo và Offer (Ads & Grand Slam Offer):** Giải mã lời hứa thương hiệu, bằng chứng (proof) và thiết kế gói ưu đãi không thể từ chối.
 
-3. **Tích Hợp Notion 1-Click (Notion Auto-Sync):**
-   - Tự động tạo các trang báo cáo chuyên nghiệp trên Notion với icon, Callout, Quote, To-do và Bullet list khoa học.
-   - Tự động nhận diện và liệt kê các Database / Trang Notion mà bạn cấp quyền.
+3. **Quản Lý Đa Dự Án (Brand Workspace Manager):**
+   - Quản lý độc lập nhiều thương hiệu / sản phẩm khác nhau trên cùng một giao diện.
+   - Chuyển đổi qua lại giữa các dự án mà không bị ghi đè dữ liệu.
+   - Hỗ trợ xuất / nhập file dự án (`.json`) để sao lưu an toàn hoặc chia sẻ cho đồng nghiệp.
 
-4. **Bảo Mật Cục Bộ 100%:**
+4. **Tự Động Bóc Tách Transcript / Phụ Đề Video (YouTube & Shorts):**
+   - Tự động lấy toàn bộ lời thoại và metadata video đối thủ qua link YouTube chỉ với 1-click.
+   - Tự động nạp lời thoại vào pipeline AI để bóc tách motif kịch bản và viết kịch bản phản đòn 60s.
+
+5. **Xuất File Đa Định Dạng (Excel, CSV, Markdown, Notion):**
+   - **Lịch Nội Dung (Content Calendar):** Xuất trực tiếp ra file **Excel / CSV** chuẩn UTF-8 (không lỗi font tiếng Việt) với đầy đủ ngày, phễu, trụ cột, câu hook và dàn ý.
+   - **Báo Cáo Nghiên Cứu:** Tải trọn bộ báo cáo Tầng 1 ra file **Markdown (.md)** định dạng chuẩn để gửi sếp hoặc lưu trữ nội bộ.
+   - **Tích Hợp Notion 1-Click:** Tự động tạo các trang báo cáo chuyên nghiệp trên Notion với icon, Callout, Quote, To-do và Bullet list khoa học.
+
+6. **Bảo Mật Cục Bộ 100%:**
    - Ứng dụng chạy hoàn toàn trên máy tính của bạn (`localhost`), API Key được lưu trong file `config.json` cục bộ, không gửi về bất kỳ máy chủ trung gian nào.
 
 ---

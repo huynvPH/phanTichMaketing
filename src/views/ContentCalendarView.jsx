@@ -9,7 +9,8 @@ import {
   Quote, 
   Layers,
   ChevronDown,
-  RotateCcw
+  RotateCcw,
+  Download
 } from 'lucide-react';
 
 export default function ContentCalendarView({ 
@@ -91,8 +92,71 @@ export default function ContentCalendarView({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Xuất file CSV chuẩn UTF-8 (tương thích Excel và Google Sheets không bị lỗi font tiếng Việt)
+  const handleExportCSV = () => {
+    if (!calendar || !calendar.posts || calendar.posts.length === 0) {
+      alert('Chưa có danh sách bài đăng để xuất.');
+      return;
+    }
+
+    const headers = [
+      'STT',
+      'Kênh',
+      'Thời gian/Ngày',
+      'Giai đoạn Phễu',
+      'Trụ cột (Pillar)',
+      'Định dạng',
+      'Chủ đề/Tiêu đề bài viết',
+      'Câu Hook 3s đầu',
+      'Dàn ý nội dung',
+      'CTA (Kêu gọi hành động)',
+      'Mã Insight truy xuất',
+      'Trích dẫn nguyên văn khách hàng (Verbatim)',
+    ];
+
+    const escapeCSV = (str) => {
+      if (str === null || str === undefined) return '""';
+      const s = String(str).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows = calendar.posts.map((post, index) => {
+      const outlineStr = Array.isArray(post.keyOutline) ? post.keyOutline.join(' | ') : (post.keyOutline || '');
+      const insightCode = post.traceableInsight?.insightCode || post.traceableInsight?.insightType || '';
+      const verbatim = post.traceableInsight?.verbatimEvidence || '';
+
+      return [
+        index + 1,
+        calendar.channel || selectedChannel,
+        post.day || `Bài ${post.id}`,
+        post.funnelStage || '',
+        post.pillarName || post.pillarId || '',
+        post.format || '',
+        post.topic || '',
+        post.hook || '',
+        outlineStr,
+        post.callToAction || '',
+        insightCode,
+        verbatim,
+      ].map(escapeCSV).join(',');
+    });
+
+    // Thêm UTF-8 BOM (\uFEFF) để Excel hiển thị đúng dấu tiếng Việt
+    const csvContent = '\uFEFF' + [headers.map(escapeCSV).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeChannel = (calendar.channel || 'Lich_Content').replace(/\s+/g, '_');
+    link.href = url;
+    link.download = `${safeChannel}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Header */}
       <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -191,12 +255,12 @@ export default function ContentCalendarView({
       {calendar && !loading && (
         <div className="space-y-6 pt-2">
           {/* Header Action Bar */}
-          <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">
+          <div className="bg-slate-900 text-white rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="shrink-0">
+              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest block mb-0.5">
                 Kế Hoạch Xuất Bản
               </span>
-              <h2 className="text-base sm:text-lg font-bold text-white">
+              <h2 className="text-base sm:text-lg font-bold text-white whitespace-nowrap">
                 {calendar.channel} • {calendar.period}
               </h2>
               {calendar.focusSummary && (
@@ -206,16 +270,28 @@ export default function ContentCalendarView({
               )}
             </div>
 
-            {onSyncToNotion && (
+            <div className="flex items-center gap-2 shrink-0 flex-nowrap overflow-x-auto pb-1 md:pb-0">
               <button
-                onClick={() => onSyncToNotion(`Lịch Nội Dung ${calendar.channel}`, { channel: calendar.channel, period: calendar.period }, calendar)}
+                onClick={handleExportCSV}
                 type="button"
-                className="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5 cursor-pointer shrink-0"
+                className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap shrink-0"
+                title="Tải bảng tính CSV để mở ngay trên Microsoft Excel hoặc Google Sheets"
               >
-                <Share2 className="h-3.5 w-3.5" />
-                Đồng bộ Notion
+                <Download className="h-3.5 w-3.5" />
+                <span>Xuất File Excel / CSV</span>
               </button>
-            )}
+
+              {onSyncToNotion && (
+                <button
+                  onClick={() => onSyncToNotion(`Lịch Nội Dung ${calendar.channel}`, { channel: calendar.channel, period: calendar.period }, calendar)}
+                  type="button"
+                  className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  <span>Đồng bộ Notion</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Posts List */}

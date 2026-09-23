@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import { YoutubeTranscript } from 'youtube-transcript';
 import { testAIConnection, callAI, fetchProviderModels, getDefaultModels, PROMPT_TEMPLATES } from './aiService.js';
 import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
 
@@ -402,6 +403,130 @@ app.post('/api/competitor/parse-links', (req, res) => {
 
     res.json({ success: true, total: parsed.length, videos: parsed });
   } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 5.2 API: Tự động trích xuất phụ đề/transcript từ link YouTube / Shorts
+app.post('/api/competitor/fetch-transcript', async (req, res) => {
+  try {
+    const { urls = [] } = req.body;
+    const linkList = Array.isArray(urls)
+      ? urls
+      : String(urls)
+          .split('\n')
+          .map((l) => l.trim())
+          .filter(Boolean);
+
+    if (linkList.length === 0) {
+      return res.status(400).json({ success: false, error: 'Chưa có link video nào được cung cấp' });
+    }
+
+    const results = [];
+
+    for (const rawUrl of linkList) {
+      const url = rawUrl.trim();
+      let videoId = null;
+
+      // Trích xuất video ID từ nhiều định dạng URL YouTube
+      if (url.includes('youtube.com/shorts/')) {
+        const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+        if (m) videoId = m[1];
+      } else if (url.includes('watch?v=' || url.includes('&v='))) {
+        const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+        if (m) videoId = m[1];
+      } else if (url.includes('youtu.be/')) {
+        const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+        if (m) videoId = m[1];
+      } else if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
+        videoId = url;
+      }
+
+      if (!videoId) {
+        results.push({
+          url,
+          videoId: null,
+          title: 'Không phải link YouTube hợp lệ',
+          author: 'N/A',
+          transcript: '',
+          status: 'skipped',
+          message: 'Hiện tại tự động cào transcript hỗ trợ tốt nhất cho YouTube & YouTube Shorts.',
+        });
+        continue;
+      }
+
+      // 1. Lấy thông tin tiêu đề qua oEmbed
+      let title = `Video ${videoId}`;
+      let author = 'Đối thủ';
+      try {
+        const oembedRes = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        );
+        if (oembedRes.ok) {
+          const oembedData = await oembedRes.json();
+          if (oembedData.title) title = oembedData.title;
+          if (oembedData.author_name) author = oembedData.author_name;
+        }
+      } catch {}
+
+      // 2. Lấy transcript/phụ đề
+      let transcriptText = '';
+      let status = 'success';
+      let message = 'Lấy phụ đề thành công';
+
+      try {
+        // Thử tiếng Việt trước
+        let transcriptItems = [];
+        try {
+          transcriptItems = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'vi' });
+        } catch {
+          // Thử ngôn ngữ mặc định (Anh hoặc auto)
+          transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+        }
+
+        if (Array.isArray(transcriptItems) && transcriptItems.length > 0) {
+          transcriptText = transcriptItems
+            .map((item) => item.text?.trim())
+            .filter(Boolean)
+            .join(' ');
+        } else {
+          status = 'no_transcript';
+          message = 'Video không có phụ đề hoặc phụ đề bị tắt.';
+        }
+      } catch (err) {
+        status = 'error';
+        message = `Không lấy được transcript (${err.message || 'Phụ đề không khả dụng'})`;
+      }
+
+      results.push({
+        url,
+        videoId,
+        title,
+        author,
+        transcript: transcriptText,
+        status,
+        message,
+      });
+    }
+
+    // Ghép toàn bộ nội dung để sẵn sàng dán vào form phân tích
+    const combinedBlocks = results
+      .filter((r) => r.transcript)
+      .map((r, i) => {
+        return `=== VIDEO ${i + 1}: ${r.title} (Kênh: ${r.author}) ===\nLink: ${r.url}\n[LỜI THOẠI TRANSCRIPT]:\n${r.transcript}\n`;
+      });
+
+    const combinedText = combinedBlocks.join('\n----------------------------------------\n\n');
+
+    res.json({
+      success: true,
+      total: results.length,
+      successCount: results.filter((r) => r.status === 'success').length,
+      results,
+      combinedText,
+    });
+  } catch (error) {
+    console.error('Lỗi khi fetch transcript:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
