@@ -182,10 +182,10 @@ export default function ModelSelector({ currentModel, onModelChange }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all shadow-xs text-xs font-medium cursor-pointer ${
+        className={`h-9 flex items-center gap-2 px-3.5 rounded-lg border transition-all shadow-xs text-xs font-medium cursor-pointer ${
           isOpen
             ? 'bg-indigo-50/60 border-indigo-500 ring-2 ring-indigo-500/10'
-            : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800'
+            : 'bg-white hover:bg-slate-50 hover:border-slate-400 border-slate-300 text-slate-800'
         }`}
       >
         <Cpu className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
@@ -195,7 +195,7 @@ export default function ModelSelector({ currentModel, onModelChange }) {
           {selectedModel.tag}
         </span>
         <ChevronDown
-          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${
+          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
             isOpen ? 'rotate-180 text-indigo-600' : ''
           }`}
         />

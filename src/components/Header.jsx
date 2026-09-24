@@ -18,15 +18,15 @@ export default function Header({ currentModel, onModelChange, onOpenSettings, ac
         <div className="hidden sm:flex items-center ml-3 pl-3 border-l border-slate-200">
           <button
             onClick={onOpenProjectSelector}
-            className="flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-medium transition cursor-pointer group"
+            className="h-9 flex items-center gap-2 px-3.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 hover:border-slate-400 text-xs font-medium transition-all shadow-xs cursor-pointer group"
             title="Bấm để chuyển đổi hoặc tạo dự án mới"
           >
-            <FolderGit2 className="h-3.5 w-3.5 text-indigo-600" />
-            <span className="text-[11px] text-slate-400">Dự án:</span>
-            <span className="font-bold text-slate-800 group-hover:text-indigo-700 max-w-[160px] truncate">
+            <FolderGit2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+            <span className="text-[11px] text-slate-500">Dự án:</span>
+            <span className="font-semibold text-slate-900 group-hover:text-indigo-600 max-w-[150px] truncate">
               {activeProjectName || 'Dự án Chính'}
             </span>
-            <ChevronDown className="h-3 w-3 text-slate-400 group-hover:text-indigo-500" />
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
           </button>
         </div>
       </div>
@@ -35,9 +35,9 @@ export default function Header({ currentModel, onModelChange, onOpenSettings, ac
         {/* Mobile Project Selector Button */}
         <button
           onClick={onOpenProjectSelector}
-          className="sm:hidden flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold cursor-pointer"
+          className="sm:hidden h-9 flex items-center gap-1.5 px-3 rounded-lg bg-white text-indigo-700 border border-slate-300 text-xs font-semibold cursor-pointer shadow-xs"
         >
-          <FolderGit2 className="h-3.5 w-3.5" />
+          <FolderGit2 className="h-3.5 w-3.5 text-indigo-600" />
         </button>
 
         {/* Custom Modern Model Combobox */}
@@ -46,10 +46,10 @@ export default function Header({ currentModel, onModelChange, onOpenSettings, ac
         {/* Settings Button */}
         <button
           onClick={onOpenSettings}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold transition shadow-xs cursor-pointer"
+          className="h-9 flex items-center gap-2 px-3.5 rounded-lg bg-white hover:bg-slate-50 hover:border-slate-400 text-slate-800 border border-slate-300 text-xs font-medium transition-all shadow-xs cursor-pointer group"
         >
-          <Settings className="h-3.5 w-3.5 text-slate-500" />
-          <span>Cài đặt API</span>
+          <Settings className="h-3.5 w-3.5 text-indigo-600 group-hover:rotate-45 transition-transform duration-200 shrink-0" />
+          <span className="font-semibold text-slate-900">Cài đặt API</span>
         </button>
       </div>
     </header>
