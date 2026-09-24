@@ -70,7 +70,7 @@ export const TAB_GROUPS = [
 
 export default function Sidebar({ activeTab, onSelectTab }) {
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 p-3 flex flex-col justify-between shrink-0 overflow-y-auto">
+    <aside className="w-64 h-full bg-white border-r border-slate-200 p-3 flex flex-col justify-between shrink-0 overflow-y-auto sticky top-0 self-stretch">
       <nav className="space-y-4">
         {TAB_GROUPS.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">

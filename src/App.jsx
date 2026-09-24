@@ -244,7 +244,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
+    <div className="h-screen bg-slate-50 text-slate-900 flex flex-col antialiased overflow-hidden">
       {/* Top Header */}
       <Header
         config={config}
@@ -256,12 +256,12 @@ export default function App() {
       />
 
       {/* Main Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Sidebar */}
         <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">
           {activeTab === 'all_in_one' && (
             <ExecutiveResearchView
               currentModel={currentModel}
