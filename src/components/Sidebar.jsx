@@ -4,7 +4,9 @@ import {
   CalendarDays, 
   Database, 
   ChevronRight,
-  Swords
+  Swords,
+  FolderGit2,
+  ChevronDown
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
@@ -68,10 +70,35 @@ export const TAB_GROUPS = [
   },
 ];
 
-export default function Sidebar({ activeTab, onSelectTab }) {
+export default function Sidebar({ activeTab, onSelectTab, activeProjectName, onOpenProjectSelector }) {
   return (
     <aside className="w-64 h-full bg-white border-r border-slate-200 p-3 flex flex-col justify-between shrink-0 overflow-y-auto sticky top-0 self-stretch">
-      <nav className="space-y-4">
+      <div className="space-y-3">
+        {/* Project Selector Trigger */}
+        {onOpenProjectSelector && (
+          <div className="pb-2.5 border-b border-slate-100">
+            <button
+              onClick={onOpenProjectSelector}
+              className="w-full h-11 flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-200 text-xs font-medium transition-all shadow-2xs cursor-pointer group"
+              title="Bấm để chuyển đổi hoặc tạo dự án mới"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+                  <FolderGit2 className="h-3.5 w-3.5" />
+                </div>
+                <div className="text-left min-w-0">
+                  <span className="text-[10px] text-slate-400 block leading-tight font-medium">Dự án</span>
+                  <span className="font-bold text-slate-800 group-hover:text-indigo-700 text-xs truncate block leading-tight max-w-[130px]">
+                    {activeProjectName || 'Dự án Chính'}
+                  </span>
+                </div>
+              </div>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+            </button>
+          </div>
+        )}
+
+        <nav className="space-y-4">
         {TAB_GROUPS.map((group, gIdx) => (
           <div key={gIdx} className="space-y-1">
             <div className="px-2 pb-1 flex items-center justify-between gap-2 min-w-0">
@@ -113,7 +140,8 @@ export default function Sidebar({ activeTab, onSelectTab }) {
             </div>
           </div>
         ))}
-      </nav>
+        </nav>
+      </div>
 
       <div className="p-2 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3 mt-4">
         Quy trình 3 Tầng Thực Chiến v1.0

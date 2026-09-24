@@ -251,14 +251,17 @@ export default function App() {
         currentModel={currentModel}
         onModelChange={handleModelChange}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        activeProjectName={activeProjectName}
-        onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
       />
 
       {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left Sidebar */}
-        <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
+        <Sidebar 
+          activeTab={activeTab} 
+          onSelectTab={setActiveTab} 
+          activeProjectName={activeProjectName}
+          onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
+        />
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">

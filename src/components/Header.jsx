@@ -1,8 +1,8 @@
 import React from 'react';
-import { Sparkles, Settings, FolderGit2, ChevronDown } from 'lucide-react';
+import { Sparkles, Settings } from 'lucide-react';
 import ModelSelector from './ModelSelector';
 
-export default function Header({ currentModel, onModelChange, onOpenSettings, activeProjectName, onOpenProjectSelector }) {
+export default function Header({ currentModel, onModelChange, onOpenSettings }) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-2.5 bg-white border-b border-slate-200 shadow-xs">
       <div className="flex items-center gap-3">
@@ -17,32 +17,9 @@ export default function Header({ currentModel, onModelChange, onOpenSettings, ac
             <span className="text-slate-800 font-bold">Hub</span>
           </h1>
         </div>
-
-        {/* Project Selector Trigger */}
-        <div className="hidden sm:flex items-center ml-2 pl-3 border-l border-slate-200">
-          <button
-            onClick={onOpenProjectSelector}
-            className="h-9 flex items-center gap-2 px-3.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 hover:border-slate-400 text-xs font-medium transition-all shadow-xs cursor-pointer group"
-            title="Bấm để chuyển đổi hoặc tạo dự án mới"
-          >
-            <FolderGit2 className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-            <span className="text-[11px] text-slate-500">Dự án:</span>
-            <span className="font-semibold text-slate-900 group-hover:text-indigo-600 max-w-[150px] truncate">
-              {activeProjectName || 'Dự án Chính'}
-            </span>
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
-          </button>
-        </div>
       </div>
 
       <div className="flex items-center gap-2.5">
-        {/* Mobile Project Selector Button */}
-        <button
-          onClick={onOpenProjectSelector}
-          className="sm:hidden h-9 flex items-center gap-1.5 px-3 rounded-lg bg-white text-indigo-700 border border-slate-300 text-xs font-semibold cursor-pointer shadow-xs"
-        >
-          <FolderGit2 className="h-3.5 w-3.5 text-indigo-600" />
-        </button>
 
         {/* Custom Modern Model Combobox */}
         <ModelSelector currentModel={currentModel} onModelChange={onModelChange} />
