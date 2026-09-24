@@ -406,7 +406,7 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
           title: [{ type: 'text', text: { content: pageTitle } }],
         },
       },
-      children: childrenBlocks.slice(0, 95),
+      children: childrenBlocks.slice(0, 90),
     });
   } else {
     newPage = await notion.pages.create({
@@ -414,8 +414,25 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
       properties: {
         title: [{ type: 'text', text: { content: pageTitle } }],
       },
-      children: childrenBlocks.slice(0, 95),
+      children: childrenBlocks.slice(0, 90),
     });
+  }
+
+  // Đẩy tiếp toàn bộ các block còn lại theo từng đợt 90 block (vượt qua giới hạn 100 block/request của Notion)
+  if (childrenBlocks.length > 90) {
+    const remaining = childrenBlocks.slice(90);
+    const BATCH_SIZE = 90;
+    for (let i = 0; i < remaining.length; i += BATCH_SIZE) {
+      const chunk = remaining.slice(i, i + BATCH_SIZE);
+      try {
+        await notion.blocks.children.append({
+          block_id: newPage.id,
+          children: chunk,
+        });
+      } catch (appendErr) {
+        console.warn(`Lỗi khi nối thêm block vào Notion (đợt ${Math.floor(i / BATCH_SIZE) + 2}):`, appendErr.message);
+      }
+    }
   }
 
   return {

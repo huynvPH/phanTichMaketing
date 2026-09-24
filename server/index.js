@@ -69,6 +69,56 @@ function getClientKeys(req) {
   return {};
 }
 
+// Helper: Tự động cân bằng ngoặc và phân tích JSON an toàn
+function safeParseJson(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {}
+
+  // Thử bóc tách JSON object từ chuỗi văn bản
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+    } catch {}
+  }
+
+  // Cố gắng cứu chuỗi JSON bị ngắt cụt (Token truncation) bằng cách cân bằng dấu ngoặc
+  if (firstBrace !== -1) {
+    let truncated = cleaned.slice(firstBrace).trim();
+    truncated = truncated.replace(/,\s*$/, '');
+    
+    let openBraces = (truncated.match(/\{/g) || []).length;
+    let closeBraces = (truncated.match(/\}/g) || []).length;
+    let openBrackets = (truncated.match(/\[/g) || []).length;
+    let closeBrackets = (truncated.match(/\]/g) || []).length;
+
+    // Đóng ngoặc kép nếu chuỗi đang bị dở
+    const quotes = (truncated.match(/(?<!\\)"/g) || []).length;
+    if (quotes % 2 !== 0) {
+      truncated += '"';
+    }
+
+    while (openBrackets > closeBrackets) {
+      truncated += ']';
+      closeBrackets++;
+    }
+    while (openBraces > closeBraces) {
+      truncated += '}';
+      closeBraces++;
+    }
+
+    try {
+      return JSON.parse(truncated);
+    } catch {}
+  }
+
+  return null;
+}
+
 // 1. API: Lấy trạng thái cấu hình
 app.get('/api/config', (req, res) => {
   const cfg = loadConfig();
@@ -316,20 +366,8 @@ Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực 
       jsonMode: activeProvider !== 'claude', // Claude hỗ trợ xuất format JSON tự nhiên rất chuẩn
     });
 
-    // Parse JSON an toàn
-    let parsedData = null;
-    try {
-      const cleaned = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim();
-      parsedData = JSON.parse(cleaned);
-    } catch {
-      // Nếu model trả về có kèm text, cố bóc tách phần JSON
-      const match = rawResponse.match(/\{[\s\S]*\}/);
-      if (match) {
-        try {
-          parsedData = JSON.parse(match[0]);
-        } catch {}
-      }
-    }
+    // Parse JSON an toàn bằng thuật toán cân bằng ngoặc
+    const parsedData = safeParseJson(rawResponse);
 
     res.json({
       success: true,

@@ -62,6 +62,30 @@ export default function ExecutiveResearchView({
     }
   });
 
+  const [rawTextOutput, setRawTextOutput] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_executive_raw') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [progressStep, setProgressStep] = useState(0);
+
+  // Hiệu ứng chuyển động các giai đoạn phân tích khi loading
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      setProgressStep(0);
+      timer = setInterval(() => {
+        setProgressStep((prev) => (prev < 3 ? prev + 1 : prev));
+      }, 3500);
+    } else {
+      setProgressStep(0);
+    }
+    return () => clearInterval(timer);
+  }, [loading]);
+
   // Đánh giá sơ bộ chất lượng dữ liệu đầu vào (Input Health Gatekeeper)
   const getInputHealth = () => {
     const raw = (formData.customerPainRaw || '').trim();
@@ -108,9 +132,11 @@ export default function ExecutiveResearchView({
       };
       setFormData(empty);
       setResult(null);
+      setRawTextOutput('');
       try {
         localStorage.removeItem('marketing_executive_form');
         localStorage.removeItem('marketing_executive_result');
+        localStorage.removeItem('marketing_executive_raw');
       } catch {}
     }
   };
@@ -151,13 +177,22 @@ export default function ExecutiveResearchView({
         throw new Error(data.error || 'Có lỗi xảy ra khi phân tích.');
       }
 
+      if (data.rawText) {
+        setRawTextOutput(data.rawText);
+        try {
+          localStorage.setItem('marketing_executive_raw', data.rawText);
+        } catch {}
+      }
+
       const analyzed = data.data;
       setResult(analyzed);
       try {
-        localStorage.setItem('marketing_executive_result', JSON.stringify(analyzed));
+        if (analyzed) {
+          localStorage.setItem('marketing_executive_result', JSON.stringify(analyzed));
+        }
       } catch {}
 
-      if (onSaveAllResearch) {
+      if (onSaveAllResearch && analyzed) {
         onSaveAllResearch(analyzed, formData);
       }
     } catch (err) {
@@ -464,16 +499,75 @@ export default function ExecutiveResearchView({
 
       </div>
 
-      {/* Loading state indicator */}
+      {/* Loading state indicator with dynamic progress steps */}
       {loading && (
-        <div className="p-8 border border-slate-200 rounded-xl bg-slate-50 text-center space-y-2">
-          <div className="inline-block w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mb-1" />
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-            AI đang phân tích dữ liệu nghiên cứu...
-          </h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            Hệ thống đang bóc tách Định khung, Nhu cầu tìm kiếm, Tiếng nói khách hàng, Đối thủ và Ưu đãi.
-          </p>
+        <div className="p-8 border border-indigo-200 rounded-2xl bg-gradient-to-b from-indigo-50/70 to-white text-center space-y-5 shadow-xs">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-indigo-100 text-indigo-600 mb-1">
+            <Sparkles className="w-6 h-6 animate-spin" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+              {progressStep === 0 && 'Bước 1/4: Đang tiếp nhận & đồng bộ hồ sơ sản phẩm...'}
+              {progressStep === 1 && 'Bước 2/4: AI đang giải mã tâm lý, nỗi đau & khao khát khách hàng...'}
+              {progressStep === 2 && 'Bước 3/4: Đang quét khoảng trống thị trường & định vị khác biệt...'}
+              {progressStep === 3 && 'Bước 4/4: Đang xây dựng ma trận chiến lược & kết xuất báo cáo...'}
+            </h3>
+            <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+              {progressStep === 0 && 'Rà soát các thông số thị trường mục tiêu và mục tiêu kinh doanh.'}
+              {progressStep === 1 && 'Bóc tách ngôn từ VoC, phát hiện rào cản mua hàng và giải pháp tâm lý.'}
+              {progressStep === 2 && 'So khớp các góc tiếp cận cạnh tranh và cơ hội Đại Dương Xanh.'}
+              {progressStep === 3 && 'Hoàn thiện cấu trúc bảng và liên kết trực tiếp sang Tầng 2 Chiến lược.'}
+            </p>
+          </div>
+          {/* Visual Step Progress Dots */}
+          <div className="flex items-center justify-center gap-2 max-w-xs mx-auto">
+            {[0, 1, 2, 3].map((stepIdx) => (
+              <div
+                key={stepIdx}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                  progressStep >= stepIdx ? 'bg-indigo-600' : 'bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fallback View if AI returned raw text but JSON parsing failed */}
+      {!result && !loading && rawTextOutput && (
+        <div className="bg-white border border-amber-300 rounded-2xl p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Báo Cáo Nghiên Cứu (Dạng Văn Bản Tự Do)</h3>
+                <p className="text-xs text-slate-500">AI đã hoàn thành phân tích. Toàn bộ nội dung phân tích chi tiết được lưu giữ an toàn bên dưới.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => copyText(rawTextOutput, 'raw')}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                {copiedIndex === 'raw' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedIndex === 'raw' ? 'Đã sao chép' : 'Sao chép toàn bộ'}
+              </button>
+              <button
+                type="button"
+                onClick={handleAnalyzeAll}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Phân tích lại
+              </button>
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl overflow-x-auto text-xs text-slate-800 font-mono whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">
+            {rawTextOutput}
+          </div>
         </div>
       )}
 

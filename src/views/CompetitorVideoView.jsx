@@ -50,6 +50,16 @@ export default function CompetitorVideoView({
     }
   });
 
+  const [rawTextOutput, setRawTextOutput] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_competitor_raw') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [transcriptNotice, setTranscriptNotice] = useState(null);
+
   // Tự động đếm số lượng link
   const detectedLinks = linksText
     .split('\n')
@@ -80,8 +90,11 @@ export default function CompetitorVideoView({
       setScriptsText('');
       setDirectAnalysisText('');
       setResult(null);
+      setRawTextOutput('');
+      setTranscriptNotice(null);
       try {
         localStorage.removeItem('marketing_competitor_video_result');
+        localStorage.removeItem('marketing_competitor_raw');
       } catch {}
     }
   };
@@ -101,7 +114,7 @@ export default function CompetitorVideoView({
     reader.readAsText(file);
   };
 
-  // Tự động cào Transcript từ các link YouTube/Shorts đã nhập
+  // Tự động cào Transcript từ các link YouTube/Shorts đã nhập (kèm Fallback khi máy chủ Vercel bị chặn IP)
   const handleAutoFetchTranscripts = async () => {
     if (detectedLinks.length === 0) {
       alert('Vui lòng dán ít nhất 1 link video YouTube hoặc YouTube Shorts.');
@@ -109,6 +122,7 @@ export default function CompetitorVideoView({
     }
 
     setFetchingTranscript(true);
+    setTranscriptNotice(null);
     try {
       const res = await fetch('/api/competitor/fetch-transcript', {
         method: 'POST',
@@ -128,12 +142,23 @@ export default function CompetitorVideoView({
           return data.combinedText;
         });
         setInputMode('scripts');
-        alert(`Đã trích xuất thành công lời thoại của ${data.successCount}/${data.total} video! Đã tự động chuyển sang tab Lời Thoại.`);
+        setTranscriptNotice({
+          type: 'success',
+          text: `Đã trích xuất thành công lời thoại của ${data.successCount}/${data.total} video! Bạn có thể xem hoặc chỉnh sửa trực tiếp bên dưới.`,
+        });
       } else {
-        alert('Không tìm thấy phụ đề cho các video đã nhập (video có thể chưa bật phụ đề).');
+        setInputMode('scripts');
+        setTranscriptNotice({
+          type: 'warning',
+          text: 'YouTube có thể đang hạn chế quét tự động qua IP máy chủ đám mây hoặc video chưa bật phụ đề. Bạn hãy dán trực tiếp lời thoại hoặc nội dung tóm tắt của video vào ô dưới đây để tiếp tục phân tích!',
+        });
       }
     } catch (err) {
-      alert(`Lỗi khi lấy phụ đề: ${err.message}`);
+      setInputMode('scripts');
+      setTranscriptNotice({
+        type: 'warning',
+        text: `Không thể tự động tải phụ đề (${err.message}). Bạn hãy dán trực tiếp lời thoại hoặc ghi chú phân tích video vào ô dưới đây để tiếp tục!`,
+      });
     } finally {
       setFetchingTranscript(false);
     }
@@ -203,14 +228,23 @@ export default function CompetitorVideoView({
         throw new Error(data.error || 'Có lỗi xảy ra trong quá trình phân tích video.');
       }
 
+      if (data.rawText) {
+        setRawTextOutput(data.rawText);
+        try {
+          localStorage.setItem('marketing_competitor_raw', data.rawText);
+        } catch {}
+      }
+
       const analyzed = data.data;
       setResult(analyzed);
       try {
-        localStorage.setItem('marketing_competitor_video_result', JSON.stringify(analyzed));
+        if (analyzed) {
+          localStorage.setItem('marketing_competitor_video_result', JSON.stringify(analyzed));
+        }
       } catch {}
 
       // Đồng bộ vào kho dữ liệu Tầng 1
-      if (onSaveCompetitorData) {
+      if (onSaveCompetitorData && analyzed) {
         onSaveCompetitorData(analyzed, payloadData);
       }
     } catch (err) {
@@ -336,6 +370,29 @@ export default function CompetitorVideoView({
             />
           </div>
         </div>
+
+        {/* Notice Fallback khi lấy transcript gặp sự cố trên cloud */}
+        {transcriptNotice && (
+          <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 animate-in fade-in slide-in-from-top-2 ${
+            transcriptNotice.type === 'success'
+              ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+              : 'bg-amber-50/95 border-amber-200 text-amber-900'
+          }`}>
+            <AlertTriangle className={`h-4 w-4 shrink-0 mt-0.5 ${
+              transcriptNotice.type === 'success' ? 'text-emerald-600' : 'text-amber-600'
+            }`} />
+            <div className="flex-1 leading-relaxed font-medium">
+              {transcriptNotice.text}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTranscriptNotice(null)}
+              className="text-slate-400 hover:text-slate-700 text-xs font-bold leading-none cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Mode 1: Dán links */}
         {inputMode === 'links' && (
@@ -487,10 +544,12 @@ export default function CompetitorVideoView({
 
       {/* Loading Progress State */}
       {loading && (
-        <div className="p-8 border border-slate-200 rounded-xl bg-slate-50 text-center space-y-4">
-          <div className="inline-block w-8 h-8 border-3 border-slate-900 border-t-transparent rounded-full animate-spin mb-1" />
+        <div className="p-8 border border-indigo-200 rounded-2xl bg-gradient-to-b from-indigo-50/70 to-white text-center space-y-5 shadow-xs">
+          <div className="inline-flex items-center justify-center p-3 rounded-full bg-indigo-100 text-indigo-600 mb-1">
+            <Sparkles className="w-6 h-6 animate-spin" />
+          </div>
           <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-slate-900 tracking-tight">
               {processingStep === 1 && 'Bước 1/4: Đang nạp danh sách & trích xuất metadata video...'}
               {processingStep === 2 && 'Bước 2/4: Đang tách lớp lời thoại (Transcript) & Quét khung hình 3 giây đầu...'}
               {processingStep === 3 && 'Bước 3/4: Đang phân nhóm & gom cụm các motif kịch bản (Clustering)...'}
@@ -499,6 +558,55 @@ export default function CompetitorVideoView({
             <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
               Hệ thống đang xử lý phân tích hàng loạt video đối thủ. Vui lòng đợi trong giây lát.
             </p>
+          </div>
+          {/* Visual Step Progress Dots */}
+          <div className="flex items-center justify-center gap-2 max-w-xs mx-auto">
+            {[1, 2, 3, 4].map((stepIdx) => (
+              <div
+                key={stepIdx}
+                className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
+                  processingStep >= stepIdx ? 'bg-indigo-600' : 'bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fallback View if AI returned raw text but JSON parsing failed */}
+      {!result && !loading && rawTextOutput && (
+        <div className="bg-white border border-amber-300 rounded-2xl p-6 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Báo Cáo Tình Báo Video (Dạng Văn Bản Tự Do)</h3>
+                <p className="text-xs text-slate-500">AI đã hoàn thành phân tích. Toàn bộ nội dung phân tích chi tiết được lưu giữ an toàn bên dưới.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => copyText(rawTextOutput, 'raw_video')}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                {copiedIndex === 'raw_video' ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedIndex === 'raw_video' ? 'Đã sao chép' : 'Sao chép toàn bộ'}
+              </button>
+              <button
+                type="button"
+                onClick={handleStartPipeline}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Phân tích lại
+              </button>
+            </div>
+          </div>
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl overflow-x-auto text-xs text-slate-800 font-mono whitespace-pre-wrap leading-relaxed max-h-[500px] overflow-y-auto">
+            {rawTextOutput}
           </div>
         </div>
       )}
