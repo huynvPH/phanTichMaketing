@@ -17,8 +17,11 @@ import {
   CheckCircle2,
   Edit3,
   Video,
-  Volume2
+  Volume2,
+  AlertTriangle
 } from 'lucide-react';
+import MetricBadge from '../components/MetricBadge';
+import DataVerificationCard from '../components/DataVerificationCard';
 
 export default function CompetitorVideoView({ 
   currentModel, 
@@ -52,6 +55,24 @@ export default function CompetitorVideoView({
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.startsWith('http://') || l.startsWith('https://'));
+
+  // Đánh giá sơ bộ chất lượng dữ liệu đầu vào (Input Health Gatekeeper)
+  const getInputHealth = () => {
+    if (inputMode === 'links') {
+      const count = detectedLinks.length;
+      if (count === 0) return null;
+      if (count < 3) return { status: 'low', text: `Mới có ${count} link. Khuyến nghị nạp từ 3-10 link để nhận diện motif chính xác, tránh phỏng đoán.` };
+      if (count <= 7) return { status: 'medium', text: `${count} link video. Đủ để bóc tách các motif phổ biến nhất ngành.` };
+      return { status: 'good', text: `${count} link video. Mẫu dữ liệu phong phú, độ chính xác phân tích cao!` };
+    }
+    const txt = (inputMode === 'scripts' ? scriptsText : directAnalysisText).trim();
+    const wordCount = txt ? txt.split(/\s+/).length : 0;
+    if (wordCount === 0) return null;
+    if (wordCount < 60) return { status: 'low', text: `Dữ liệu khá ngắn (${wordCount} từ). AI sẽ phải dùng nhiều giả định định tính.` };
+    if (wordCount < 200) return { status: 'medium', text: `Độ dài trung bình (${wordCount} từ). Đủ để trích xuất luận điểm.` };
+    return { status: 'good', text: `Dữ liệu phong phú (${wordCount} từ). Bằng chứng đối chiếu vững chắc!` };
+  };
+  const inputHealth = getInputHealth();
 
   const handleReset = () => {
     if (window.confirm('Bạn có chắc chắn muốn làm mới phần Tình Báo Video Đối Thủ?')) {
@@ -415,6 +436,29 @@ export default function CompetitorVideoView({
           </div>
         )}
 
+        {/* Input Health Indicator */}
+        {inputHealth && (
+          <div className={`p-3 rounded-lg border flex items-center justify-between gap-3 text-xs transition-colors ${
+            inputHealth.status === 'low' 
+              ? 'bg-rose-50/70 border-rose-200 text-rose-800' 
+              : inputHealth.status === 'medium' 
+              ? 'bg-amber-50/70 border-amber-200 text-amber-800' 
+              : 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className={`w-4 h-4 shrink-0 ${
+                inputHealth.status === 'low' ? 'text-rose-600' : inputHealth.status === 'medium' ? 'text-amber-600' : 'text-emerald-600'
+              }`} />
+              <span>
+                <strong>Kiểm định đầu vào:</strong> {inputHealth.text}
+              </span>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/80 border border-current shrink-0">
+              {inputHealth.status === 'low' ? 'Dữ liệu ít' : inputHealth.status === 'medium' ? 'Đạt yêu cầu' : 'Chuẩn cao'}
+            </span>
+          </div>
+        )}
+
         {/* Pipeline 4-step Visual Card */}
         <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
           <span className="font-bold text-slate-800 uppercase tracking-wider text-[10px] block mb-2.5">
@@ -498,6 +542,9 @@ export default function CompetitorVideoView({
             </div>
           </div>
 
+          {/* Data Verification & Anti-Hallucination Card */}
+          <DataVerificationCard report={result.dataVerificationReport} />
+
           {/* Executive Summary */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-xs">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -543,11 +590,14 @@ export default function CompetitorVideoView({
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {result.videoClusters.map((c, idx) => (
                   <div key={idx} className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 space-y-2 text-xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1.5 flex-wrap">
                       <span className="font-bold text-slate-900">{c.name}</span>
-                      <span className="px-2 py-0.5 rounded font-bold text-slate-900 bg-white border border-slate-200 text-[11px]">
-                        {c.percentage}%
-                      </span>
+                      <MetricBadge 
+                        type={c.metricType || 'qualitative_estimate'}
+                        value={c.percentage !== undefined ? `${c.percentage}%` : null}
+                        basis={c.metricBasis || 'Ước lượng định tính tỷ trọng motif dựa trên các video mẫu nạp vào'}
+                        compact
+                      />
                     </div>
                     <p className="text-[11px] text-slate-600 leading-relaxed">{c.description}</p>
                     <div className="pt-1.5 border-t border-slate-200/60 text-[10px] text-slate-500">
@@ -577,17 +627,24 @@ export default function CompetitorVideoView({
               <div className="space-y-3">
                 {result.topHooks.map((h, idx) => (
                   <div key={idx} className="p-4 rounded-lg border border-slate-200 bg-white space-y-2.5 text-xs">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
                         <span className="w-5 h-5 rounded-full bg-slate-900 text-white font-bold text-[10px] flex items-center justify-center shrink-0">
                           #{h.rank || idx + 1}
                         </span>
                         <span className="font-bold text-slate-900">{h.hookType}</span>
                       </div>
-                      {h.retentionScore && (
-                        <span className="text-[10px] font-semibold text-slate-500">
-                          Độ giữ chân: {h.retentionScore}
-                        </span>
+                      {(h.retentionMetric || h.retentionScore) && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-400">Giữ chân 3s:</span>
+                          <MetricBadge
+                            type={h.retentionMetric?.metricType || 'qualitative_estimate'}
+                            value={h.retentionMetric?.score || h.retentionScore}
+                            basis={h.retentionMetric?.basis || 'Đánh giá định tính dựa trên sức hút tâm lý câu hook, không phải đo lường Platform Studio'}
+                            confidence={h.retentionMetric?.confidence || 'Medium'}
+                            compact
+                          />
+                        </div>
                       )}
                     </div>
 

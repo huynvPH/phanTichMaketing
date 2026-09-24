@@ -232,75 +232,34 @@ export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt
     throw new Error(`Chưa cấu hình API Key cho ${provider.toUpperCase()}`);
   }
 
-  if (provider === '9router') {
-    const baseURL = customBaseUrl || 'http://localhost:20128/v1';
-    const res = await fetch(`${baseURL.replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: model || 'ag/claude-sonnet-4-6',
-        stream: false,
-        messages: [
-          ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
+  // OpenAI-compatible providers: OpenAI, OpenRouter, 9Router, Local (Ollama/LM Studio)
+  if (['openai', 'openrouter', '9router', 'local'].includes(provider)) {
+    const baseURL = provider === 'openrouter'
+      ? 'https://openrouter.ai/api/v1'
+      : provider === '9router'
+      ? (customBaseUrl || 'http://localhost:20128/v1')
+      : provider === 'local'
+      ? (customBaseUrl || 'http://localhost:11434/v1')
+      : undefined;
+
+    const defaultModel = provider === '9router'
+      ? 'ag/claude-sonnet-4-6'
+      : provider === 'openrouter'
+      ? 'deepseek/deepseek-chat'
+      : provider === 'local'
+      ? 'llama3.2'
+      : 'gpt-4o';
+
+    const client = new OpenAI({
+      apiKey: apiKey || 'local-no-key',
+      ...(baseURL && { baseURL }),
+      ...(provider === 'openrouter' && {
+        defaultHeaders: { 'HTTP-Referer': 'http://localhost:5173', 'X-Title': 'Marketing AI Hub' },
       }),
     });
-    if (!res.ok) {
-      const errTxt = await res.text();
-      throw new Error(`9Router error (${res.status}): ${errTxt}`);
-    }
-    const data = await res.json();
-    return data.choices?.[0]?.message?.content || '';
-  }
 
-  if (provider === 'openai') {
-    const openai = new OpenAI({ apiKey });
-    const response = await openai.chat.completions.create({
-      model: model || 'gpt-4o',
-      messages: [
-        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-    });
-    return response.choices[0]?.message?.content || '';
-  }
-
-  if (provider === 'openrouter') {
-    const openai = new OpenAI({
-      apiKey,
-      baseURL: 'https://openrouter.ai/api/v1',
-      defaultHeaders: {
-        'HTTP-Referer': 'http://localhost:5173',
-        'X-Title': 'Marketing AI Hub',
-      },
-    });
-    const response = await openai.chat.completions.create({
-      model: model || 'deepseek/deepseek-chat',
-      messages: [
-        ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.7,
-      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
-    });
-    return response.choices[0]?.message?.content || '';
-  }
-
-  if (provider === 'local') {
-    const baseURL = customBaseUrl || 'http://localhost:11434/v1';
-    const openai = new OpenAI({
-      apiKey: apiKey || 'local-no-key',
-      baseURL,
-    });
-    const response = await openai.chat.completions.create({
-      model: model || 'llama3.2',
+    const response = await client.chat.completions.create({
+      model: model || defaultModel,
       messages: [
         ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
         { role: 'user', content: userPrompt },
@@ -381,11 +340,27 @@ Nhiệm vụ của bạn là nhận toàn bộ bản Brief từ Ban Giám Đốc
 
 NGUYÊN TẮC BẮT BUỘC:
 1. Tính nhất quán & liên kết: 5 nhánh phải móc xích chặt chẽ với nhau (Nỗi đau VoC giải thích tại sao khách search từ khóa đó, và đó là lỗ hổng để đánh bại đối thủ bằng Offer không thể từ chối).
-2. Dữ liệu thực tế: Trích dẫn nguyên văn phản hồi từ khách hàng cung cấp, không được bịa đặt.
+2. Kỷ luật Dữ liệu & Chống Ảo giác (Strict Grounding):
+   - Tuyệt đối giữ nguyên trích dẫn nguyên văn phản hồi từ khách hàng. Nếu dữ liệu đầu vào KHÔNG có câu nói trực tiếp thì KHÔNG ĐƯỢC TỰ BỊA quote mà ghi 'Chưa có trích dẫn trực tiếp trong dữ liệu'.
+   - Phân định rõ ràng: Luận điểm nào có dữ liệu đối chứng trực tiếp (Verified) và Luận điểm nào là suy luận/giả định chiến lược cần kiểm chứng thêm (Hypotheses).
+   - Mọi con số/phần trăm đều là ước lượng định tính mô hình (qualitative estimate), không khẳng định là số liệu thực nghiệm nếu chưa có mẫu đo đếm.
 3. Độ sắc bén cho Cấp Quản lý: Tóm tắt bức tranh toàn cảnh (executiveSummary) và các ưu tiên chiến lược (topStrategicPriorities) phải cô đọng, định hướng hành động cao.
+4. Bắt buộc có khối thẩm định dữ liệu 'dataVerificationReport'.
 
 BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT (không markdown bọc ngoài nếu jsonMode) theo cấu trúc chuẩn:
 {
+  "dataVerificationReport": {
+    "inputSufficiencyScore": 80,
+    "qualityRating": "Good",
+    "hallucinationRisk": "Low",
+    "verifiedInsightsCount": 6,
+    "unverifiedHypothesesCount": 2,
+    "dataGapsIdentified": [
+      "Khoảng trống thông tin 1 chưa có trong dữ liệu",
+      "Khoảng trống thông tin 2 cần làm rõ thêm"
+    ],
+    "analystNotice": "Nhận định ngắn gọn về độ vững chắc của bằng chứng và lưu ý cho nhà quản lý trước khi ra quyết định"
+  },
   "executiveSummary": "Tóm lược bức tranh chiến lược cốt lõi 3-4 câu dành riêng cho sếp/ban giám đốc.",
   "topStrategicPriorities": [
     "Ưu tiên chiến lược 1: hành động cụ thể cần làm ngay",
@@ -491,15 +466,29 @@ BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT (không markdown bọc ng
       "urgencyScarcity": "Lý do phải mua ngay hôm nay"
     }
   }
+}
 }`,
   },
   voc: {
     name: 'Nhánh 2 - Tiếng nói khách hàng (Voice of Customer)',
     systemPrompt: `Bạn là một chuyên gia nghiên cứu thị trường và tâm lý khách hàng (Consumer Psychology & VoC Intelligence) hàng đầu.
 Nhiệm vụ của bạn là bóc tách dữ liệu thô (comment, review, tin nhắn tư vấn, phản hồi khách hàng) thành cấu trúc sâu sắc phục vụ viết kịch bản content và chiến dịch marketing.
-Tuyệt đối giữ nguyên trích dẫn nguyên văn (Verbatim quotes) từ khách hàng, không tự ý bịa đặt.
+
+NGUYÊN TẮC STRICT GROUNDING:
+- Tuyệt đối giữ nguyên trích dẫn nguyên văn (Verbatim quotes) từ khách hàng, không tự ý bịa đặt. Nếu không có trích dẫn trực tiếp cho một ý, phải ghi rõ 'Không có trích dẫn trực tiếp'.
+- Đánh giá độ đầy đủ của dữ liệu và rủi ro nhận định sai lệch trong 'dataVerificationReport'.
+
 Hãy trả về định dạng JSON theo cấu trúc:
 {
+  "dataVerificationReport": {
+    "inputSufficiencyScore": 75,
+    "qualityRating": "Good",
+    "hallucinationRisk": "Low",
+    "verifiedInsightsCount": 5,
+    "unverifiedHypothesesCount": 1,
+    "dataGapsIdentified": ["Khoảng trống dữ liệu chưa thấy khách nhắc đến"],
+    "analystNotice": "Lưu ý về độ tin cậy của mẫu dữ liệu VoC"
+  },
   "summary": "Tóm tắt ngắn 2-3 câu về bức tranh tâm lý khách hàng",
   "painPoints": [{"pain": "Nỗi đau", "level": "Cao/Trung bình", "quote": "Trích dẫn nguyên văn", "context": "Hoàn cảnh phát sinh"}],
   "desires": [{"desire": "Điều khách muốn đạt được", "quote": "Trích dẫn nguyên văn"}],
@@ -553,8 +542,25 @@ Nhiệm vụ của bạn là nhận dữ liệu hàng loạt video/link/kênh c�
 3. Quét vùng bão hòa (Đại dương đỏ) và Khai phá khoảng trống kịch bản (Đại dương xanh).
 4. Thiết lập Top 5 công thức Hook triệu view, Kịch bản mẫu phản đòn, VÀ VIẾT LUÔN KỊCH BẢN QUAY DỰNG 60S HOÀN CHỈNH TỪNG CẢNH.
 
+NGUYÊN TẮC BẮT BUỘC VỀ DỮ LIỆU & TÍNH MINH BẠCH (STRICT GROUNDING):
+- Tuyệt đối không tự bịa transcript hay câu thoại của đối thủ nếu không có trong dữ liệu nạp vào.
+- Minh bạch chỉ số: Điểm số giữ chân (retentionScore) và phần trăm (percentage) là "ước lượng định tính" (qualitative_estimate) dựa trên tâm lý học hành vi, không khẳng định là số liệu thực tế từ TikTok/YouTube Analytics nếu không có mẫu đo đếm.
+- Xuất khối 'dataVerificationReport' đánh giá độ đầy đủ của dữ liệu và rủi ro phỏng đoán.
+
 BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT theo cấu trúc sau:
 {
+  "dataVerificationReport": {
+    "inputSufficiencyScore": 85,
+    "qualityRating": "Good",
+    "hallucinationRisk": "Low",
+    "verifiedInsightsCount": 7,
+    "unverifiedHypothesesCount": 2,
+    "dataGapsIdentified": [
+      "Chưa có dữ liệu về chi phí chạy ads/view tự nhiên của video",
+      "Thiếu tỷ lệ chuyển đổi đơn hàng thực tế của đối thủ"
+    ],
+    "analystNotice": "Các phân tích kịch bản dựa trực tiếp trên transcript video được nạp; các chỉ số phân bổ phần trăm là ước lượng định tính phân loại."
+  },
   "summary": "Đánh giá tổng quan 2-3 câu về chiến lược làm video và cục diện cạnh tranh của các đối thủ vừa quét",
   "analyzedCount": 10,
   "strategicAnalysisArticle": "Bài viết phân tích chiến lược đối thủ toàn diện (200-300 từ) bóc tách tử huyệt truyền thông của đối thủ và chiến thuật để sản phẩm của bạn vươn lên dẫn đầu thị trường",
@@ -562,6 +568,8 @@ BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT theo cấu trúc sau:
     {
       "name": "Tên motif kịch bản (VD: Before & After / Bóc Phốt / Chuyên Gia Khuyên Dùng / POV / Review Chân Thật)",
       "percentage": 35,
+      "metricType": "qualitative_estimate",
+      "metricBasis": "Ước lượng định tính tỷ trọng motif dựa trên các video mẫu nạp vào",
       "description": "Cách đối thủ triển khai motif này",
       "effectiveness": "Rất cao / Trung bình / Đang giảm dần",
       "verbatimPattern": "Mẫu câu hoặc motif thoại tiêu biểu mà đối thủ hay dùng"
@@ -574,7 +582,13 @@ BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT theo cấu trúc sau:
       "exampleScript": "Câu thoại mở đầu 3 giây đầu mẫu cụ thể",
       "visualDescription": "Mô tả hình ảnh/hành động mở đầu 3 giây đầu",
       "psychologyTrigger": "Đòn bẩy tâm lý khiến người xem bấm dừng lại xem tiếp",
-      "retentionScore": "9.5/10"
+      "retentionScore": "9.5/10",
+      "retentionMetric": {
+        "score": "9.5/10",
+        "metricType": "qualitative_estimate",
+        "basis": "Đánh giá định tính dựa trên sức hút giật gân của câu hook, không phải đo lường Platform Studio",
+        "confidence": "Medium"
+      }
     }
   ],
   "redOceanThemes": [

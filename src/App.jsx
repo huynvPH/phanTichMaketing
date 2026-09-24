@@ -5,12 +5,7 @@ import SettingsModal from './components/SettingsModal';
 import NotionSyncModal from './components/NotionSyncModal';
 import ProjectSelectorModal from './components/ProjectSelectorModal';
 import ExecutiveResearchView from './views/ExecutiveResearchView';
-import FramingView from './views/FramingView';
-import SearchDemandView from './views/SearchDemandView';
-import VocView from './views/VocView';
-import CompetitorView from './views/CompetitorView';
 import CompetitorVideoView from './views/CompetitorVideoView';
-import OfferView from './views/OfferView';
 import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
@@ -106,21 +101,6 @@ export default function App() {
     const list = getAllProjects();
     const found = list.find((p) => p.id === newProjId);
     showToast(`Đã chuyển sang dự án: "${found?.name || 'Mới'}"`);
-  };
-
-  const handleUpdateResearch = (moduleName, data) => {
-    setResearchContext((prev) => {
-      const updated = { ...prev, [moduleName]: data };
-      try {
-        localStorage.setItem('marketing_research_context', JSON.stringify(updated));
-      } catch {}
-      saveProjectData(activeProjectId, {
-        researchContext: updated,
-        strategyData,
-        calendarData,
-      });
-      return updated;
-    });
   };
 
   const handleSaveAllResearch = (analyzed, formData) => {
@@ -299,55 +279,6 @@ export default function App() {
               onSaveCompetitorData={handleSaveCompetitorVideos}
               onNavigateToStrategy={() => setActiveTab('strategy')}
               onSyncToNotion={handleSyncToNotion}
-            />
-          )}
-          {activeTab === 'framing' && (
-            <FramingView 
-              currentModel={currentModel} 
-              onSyncToNotion={handleSyncToNotion} 
-              onSaveResult={(res) => handleUpdateResearch('framing', { ...(researchContext?.framing || {}), parsedResult: res })}
-              onSaveFormData={(form) => handleUpdateResearch('framing', { ...(researchContext?.framing || {}), formData: form })}
-              initialData={researchContext?.framing?.formData || null}
-              initialResult={researchContext?.framing?.parsedResult || null}
-            />
-          )}
-          {activeTab === 'search' && (
-            <SearchDemandView 
-              currentModel={currentModel} 
-              onSyncToNotion={handleSyncToNotion}
-              onSaveResult={(res) => handleUpdateResearch('search', { ...(researchContext?.search || {}), parsedResult: res })}
-              onSaveRawText={(txt) => handleUpdateResearch('search', { ...(researchContext?.search || {}), rawText: txt })}
-              initialData={researchContext?.search?.rawText || ''}
-              initialResult={researchContext?.search?.parsedResult || null}
-            />
-          )}
-          {activeTab === 'voc' && (
-            <VocView 
-              currentModel={currentModel} 
-              onSyncToNotion={handleSyncToNotion} 
-              onSaveResult={(res) => handleUpdateResearch('voc', { ...(researchContext?.voc || {}), parsedResult: res })}
-              initialData={researchContext?.voc?.rawText || ''}
-              initialResult={researchContext?.voc?.parsedResult || null}
-            />
-          )}
-          {activeTab === 'competitor' && (
-            <CompetitorView 
-              currentModel={currentModel} 
-              onSyncToNotion={handleSyncToNotion} 
-              onSaveResult={(res) => handleUpdateResearch('competitor', { ...(researchContext?.competitor || {}), parsedResult: res })}
-              onSaveRawText={(txt) => handleUpdateResearch('competitor', { ...(researchContext?.competitor || {}), rawText: txt })}
-              initialData={researchContext?.competitor?.rawText || ''}
-              initialResult={researchContext?.competitor?.parsedResult || null}
-            />
-          )}
-          {activeTab === 'offer' && (
-            <OfferView 
-              currentModel={currentModel} 
-              onSyncToNotion={handleSyncToNotion} 
-              onSaveResult={(res) => handleUpdateResearch('offer', { ...(researchContext?.offer || {}), parsedResult: res })}
-              onSaveRawText={(txt) => handleUpdateResearch('offer', { ...(researchContext?.offer || {}), rawText: txt })}
-              initialData={researchContext?.offer?.rawText || ''}
-              initialResult={researchContext?.offer?.parsedResult || null}
             />
           )}
           {activeTab === 'strategy' && (

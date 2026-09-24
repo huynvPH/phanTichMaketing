@@ -51,15 +51,22 @@ export async function listNotionTargets(token) {
 }
 
 /**
- * Xuất dữ liệu nghiên cứu đã phân tích vào Notion dưới dạng một Page hoàn chỉnh
+ * Xuất dữ liệu nghiên cứu hoặc Lịch nội dung vào Notion dưới dạng một Trang (Docs) hoàn chỉnh
  */
-export async function createNotionResearchPage({ token, parentId, parentType, title, moduleName, rawData, analysisJson }) {
+export async function createNotionResearchPage({ token, parentId, parentType, title, moduleName, analysisJson }) {
   if (!token) throw new Error('Chưa cấu hình Notion Token');
   if (!parentId) throw new Error('Vui lòng chọn hoặc nhập Page ID / Database ID đích trên Notion');
 
   const notion = new Client({ auth: token });
 
-  // Chuẩn bị các blocks Notion theo cấu trúc báo cáo chuyên nghiệp
+  // Tóm tắt cốt lõi thực tế
+  const summaryText =
+    analysisJson?.executiveSummary ||
+    analysisJson?.focusSummary ||
+    analysisJson?.summary ||
+    analysisJson?.brandSummary ||
+    analysisJson?.clarifiedGoal;
+
   const childrenBlocks = [
     {
       object: 'block',
@@ -69,7 +76,7 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
           {
             type: 'text',
             text: {
-              content: `Báo cáo nghiên cứu tự động: ${moduleName || 'Marketing Research'} | Ngày tạo: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`,
+              content: `Báo cáo: ${moduleName || 'Marketing Research'} | Thời gian tạo: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`,
             },
           },
         ],
@@ -77,29 +84,81 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
         color: 'blue_background',
       },
     },
-    {
+  ];
+
+  if (summaryText) {
+    childrenBlocks.push(
+      {
+        object: 'block',
+        type: 'heading_2',
+        heading_2: {
+          rich_text: [{ type: 'text', text: { content: '1. Tóm tắt cốt lõi (Executive Summary)' } }],
+        },
+      },
+      {
+        object: 'block',
+        type: 'paragraph',
+        paragraph: {
+          rich_text: [
+            {
+              type: 'text',
+              text: { content: String(summaryText).slice(0, 1800) },
+            },
+          ],
+        },
+      }
+    );
+  }
+
+  // 1. Nếu là Lịch Nội Dung (Content Calendar)
+  if (analysisJson?.posts && Array.isArray(analysisJson.posts)) {
+    childrenBlocks.push({
       object: 'block',
       type: 'heading_2',
       heading_2: {
-        rich_text: [{ type: 'text', text: { content: '1. Tóm tắt cốt lõi (Executive Summary)' } }],
-      },
-    },
-    {
-      object: 'block',
-      type: 'paragraph',
-      paragraph: {
         rich_text: [
           {
             type: 'text',
-            text: { content: analysisJson.summary || analysisJson.clarifiedGoal || 'Đã phân tích tổng quan dữ liệu thành công.' },
+            text: { content: `2. Lịch Nội Dung Kênh ${analysisJson.channel || ''} (${analysisJson.period || ''})` },
           },
         ],
       },
-    },
-  ];
+    });
 
-  // Nếu là VoC (Tiếng nói khách hàng)
-  if (analysisJson.painPoints || analysisJson.objections) {
+    analysisJson.posts.forEach((post) => {
+      const trace = post.traceableInsight || {};
+      const outlineStr = Array.isArray(post.keyOutline) ? post.keyOutline.join(' | ') : (post.keyOutline || '');
+
+      let postContent = `📌 [${post.day || 'Bài'}] [${post.funnelStage || 'TOFU'}] [${post.pillarName || post.pillarId || 'Pillar'}]\n`;
+      postContent += `Tiêu đề/Hook: ${post.topic || ''}\n"${post.hook || ''}"\n\n`;
+      if (outlineStr) postContent += `📝 Dàn ý: ${outlineStr}\n\n`;
+      if (trace.insightCode || trace.insightType) {
+        postContent += `🔍 TRUY XUẤT INSIGHT: ${trace.insightCode || ''} - ${trace.insightType || ''}\n`;
+      }
+      if (trace.verbatimEvidence) {
+        postContent += `💬 Bằng chứng trích dẫn khách: "${trace.verbatimEvidence}"\n`;
+      }
+      if (trace.rationale) {
+        postContent += `💡 Giải pháp: ${trace.rationale}\n`;
+      }
+      if (post.callToAction) {
+        postContent += `🎯 CTA: ${post.callToAction}`;
+      }
+
+      childrenBlocks.push({
+        object: 'block',
+        type: 'callout',
+        callout: {
+          rich_text: [{ type: 'text', text: { content: postContent.slice(0, 1900) } }],
+          icon: { emoji: '📅' },
+          color: 'gray_background',
+        },
+      });
+    });
+  }
+
+  // 2. Nếu là VoC (Tiếng nói khách hàng)
+  if (analysisJson?.painPoints || analysisJson?.objections) {
     if (analysisJson.painPoints?.length) {
       childrenBlocks.push({
         object: 'block',
@@ -157,15 +216,15 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
           object: 'block',
           type: 'quote',
           quote: {
-            rich_text: [{ type: 'text', text: { content: h } }],
+            rich_text: [{ type: 'text', text: { content: String(h).slice(0, 1800) } }],
           },
         });
       });
     }
   }
 
-  // Nếu là Search Demand (Nhu cầu tìm kiếm)
-  if (analysisJson.intentClusters?.length) {
+  // 3. Nếu là Search Demand (Nhu cầu tìm kiếm)
+  if (analysisJson?.intentClusters?.length) {
     childrenBlocks.push({
       object: 'block',
       type: 'heading_2',
@@ -187,8 +246,8 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     });
   }
 
-  // Nếu là Competitor (Nội dung đối thủ)
-  if (analysisJson.winningFormats || analysisJson.saturatedThemes) {
+  // 4. Nếu là Competitor (Nội dung đối thủ)
+  if (analysisJson?.winningFormats || analysisJson?.saturatedThemes) {
     if (analysisJson.winningFormats?.length) {
       childrenBlocks.push({
         object: 'block',
@@ -234,8 +293,8 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     }
   }
 
-  // Nếu là Offer & Quảng cáo
-  if (analysisJson.improvedOfferIdea) {
+  // 5. Nếu là Offer & Quảng cáo
+  if (analysisJson?.improvedOfferIdea) {
     childrenBlocks.push({
       object: 'block',
       type: 'heading_2',
@@ -269,8 +328,8 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     }
   }
 
-  // Nếu là Content Strategy (Chiến lược nội dung)
-  if (analysisJson.contentPillars || analysisJson.brandSummary) {
+  // 6. Nếu là Content Strategy (Chiến lược nội dung)
+  if (analysisJson?.contentPillars || analysisJson?.brandSummary) {
     if (analysisJson.brandSummary) {
       childrenBlocks.push({
         object: 'block',
@@ -328,88 +387,32 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     }
   }
 
-  // Nếu là Content Calendar (Lịch nội dung có truy xuất nguồn gốc)
-  if (analysisJson.posts && Array.isArray(analysisJson.posts)) {
-    childrenBlocks.push({
-      object: 'block',
-      type: 'heading_2',
-      heading_2: {
-        rich_text: [{ type: 'text', text: { content: `2. Lịch Nội Dung Kênh ${analysisJson.channel || ''} (${analysisJson.period || ''})` } }],
-      },
-    });
-
-    analysisJson.posts.forEach((post) => {
-      const trace = post.traceableInsight || {};
-      childrenBlocks.push({
-        object: 'block',
-        type: 'callout',
-        callout: {
-          rich_text: [
-            { type: 'text', text: { content: `[${post.day || ''}] [${post.funnelStage || 'TOFU'}] [${post.pillarName || post.pillarId || 'Pillar'}]\n` }, annotations: { bold: true } },
-            { type: 'text', text: { content: `📌 Tiêu đề/Hook: ${post.topic || ''}\n"${post.hook || ''}"\n\n` } },
-            { type: 'text', text: { content: `🔍 TRUY XUẤT NGUỒN GỐC INSIGHT: ${trace.insightCode || ''} - ${trace.insightType || ''}\n` }, annotations: { bold: true } },
-            { type: 'text', text: { content: `💬 Bằng chứng trích dẫn khách: "${trace.verbatimEvidence || 'Dựa trên VoC'}"\n` }, annotations: { italic: true } },
-            { type: 'text', text: { content: `💡 Giải pháp: ${trace.rationale || ''}\n` } },
-            { type: 'text', text: { content: `🎯 CTA: ${post.callToAction || ''}` } },
-          ],
-          icon: { emoji: '📅' },
-          color: 'gray_background',
-        },
-      });
-    });
-  }
-
-  // Khối dữ liệu thô đối chiếu
-  if (rawData) {
-    childrenBlocks.push({
-      object: 'block',
-      type: 'heading_3',
-      heading_3: {
-        rich_text: [{ type: 'text', text: { content: 'Dữ liệu thô dùng để bóc tách' } }],
-      },
-    });
-    childrenBlocks.push({
-      object: 'block',
-      type: 'code',
-      code: {
-        rich_text: [
-          {
-            type: 'text',
-            text: { content: (typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2)).slice(0, 1800) },
-          },
-        ],
-        language: 'plain text',
-      },
-    });
-  }
-
-  // Tạo trang: Hỗ trợ cả parent là database hoặc parent là page
+  // Tạo trang: Tương thích cả parent là Database lẫn Page
+  const pageTitle = title || `Báo Cáo - ${new Date().toLocaleDateString('vi-VN')}`;
   let newPage;
+
   if (parentType === 'database') {
+    let titlePropKey = 'title';
+    try {
+      const parentDb = await notion.databases.retrieve({ database_id: parentId });
+      const found = Object.entries(parentDb.properties || {}).find(([_, val]) => val.type === 'title');
+      if (found) titlePropKey = found[0];
+    } catch {}
+
     newPage = await notion.pages.create({
       parent: { database_id: parentId },
       properties: {
-        title: {
-          title: [
-            {
-              type: 'text',
-              text: { content: title || `Nghiên cứu Marketing - ${new Date().toLocaleDateString('vi-VN')}` },
-            },
-          ],
+        [titlePropKey]: {
+          title: [{ type: 'text', text: { content: pageTitle } }],
         },
       },
-      children: childrenBlocks.slice(0, 95), // Notion giới hạn 100 blocks mỗi request
+      children: childrenBlocks.slice(0, 95),
     });
   } else {
     newPage = await notion.pages.create({
       parent: { page_id: parentId },
       properties: {
-        title: [
-          {
-            type: 'text',
-            text: { content: title || `Nghiên cứu Marketing - ${new Date().toLocaleDateString('vi-VN')}` },
-          },
-        ],
+        title: [{ type: 'text', text: { content: pageTitle } }],
       },
       children: childrenBlocks.slice(0, 95),
     });
@@ -419,6 +422,6 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     success: true,
     pageId: newPage.id,
     url: newPage.url,
-    message: 'Đã tạo báo cáo trên Notion thành công!',
+    message: 'Đã xuất báo cáo sang Notion thành công!',
   };
 }

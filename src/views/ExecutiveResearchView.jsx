@@ -12,8 +12,11 @@ import {
   Tag, 
   Layers,
   Download,
-  FileText
+  FileText,
+  AlertTriangle
 } from 'lucide-react';
+import MetricBadge from '../components/MetricBadge';
+import DataVerificationCard from '../components/DataVerificationCard';
 
 export default function ExecutiveResearchView({ 
   currentModel, 
@@ -58,6 +61,30 @@ export default function ExecutiveResearchView({
       return null;
     }
   });
+
+  // Đánh giá sơ bộ chất lượng dữ liệu đầu vào (Input Health Gatekeeper)
+  const getInputHealth = () => {
+    const raw = (formData.customerPainRaw || '').trim();
+    const words = raw ? raw.split(/\s+/).length : 0;
+    if (!formData.productName && words === 0) return null;
+    if (words < 25) {
+      return { 
+        status: 'low', 
+        text: `Dữ liệu phản hồi của khách còn ít (${words} từ). AI sẽ phải dùng nhiều giả định định tính. Khuyến nghị dán thêm 5-10 review/comment thật.` 
+      };
+    }
+    if (words < 120) {
+      return { 
+        status: 'medium', 
+        text: `Độ dài dữ liệu mức trung bình (${words} từ). Đủ để bóc tách các nỗi đau và rào cản chính.` 
+      };
+    }
+    return { 
+      status: 'good', 
+      text: `Dữ liệu VoC phong phú (${words} từ). Bằng chứng thực tế cao, giảm thiểu nguy cơ ảo giác!` 
+    };
+  };
+  const inputHealth = getInputHealth();
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => {
@@ -361,6 +388,27 @@ export default function ExecutiveResearchView({
               placeholder="Dán các câu nói hoặc phản hồi thực tế của khách tại đây... (Mỗi ý một dòng)"
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-sans"
             />
+            {inputHealth && (
+              <div className={`mt-2 p-2.5 rounded-lg border flex items-center justify-between gap-2.5 text-xs transition-colors ${
+                inputHealth.status === 'low' 
+                  ? 'bg-rose-50/70 border-rose-200 text-rose-800' 
+                  : inputHealth.status === 'medium' 
+                  ? 'bg-amber-50/70 border-amber-200 text-amber-800' 
+                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${
+                    inputHealth.status === 'low' ? 'text-rose-600' : inputHealth.status === 'medium' ? 'text-amber-600' : 'text-emerald-600'
+                  }`} />
+                  <span className="text-[11px]">
+                    <strong>Độ vững bằng chứng:</strong> {inputHealth.text}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/80 border border-current shrink-0">
+                  {inputHealth.status === 'low' ? 'Sơ sài' : inputHealth.status === 'medium' ? 'Khá' : 'Tốt'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -477,6 +525,9 @@ export default function ExecutiveResearchView({
               )}
             </div>
           </div>
+
+          {/* Data Verification & Anti-Hallucination Card */}
+          <DataVerificationCard report={result.dataVerificationReport} />
 
           {/* Executive Summary */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3 shadow-xs">
@@ -657,12 +708,26 @@ export default function ExecutiveResearchView({
               <div className="space-y-2 pt-1">
                 <span className="text-xs font-semibold text-slate-800 block">Nỗi đau khách hàng & Trích dẫn:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {(result.voc.painPoints || []).map((p, i) => (
-                    <div key={i} className="p-3 rounded-lg border border-slate-200 bg-white text-xs space-y-1">
-                      <div className="font-semibold text-slate-900">{p.pain}</div>
-                      {p.quote && <p className="italic text-slate-600 text-[11px]">"{p.quote}"</p>}
-                    </div>
-                  ))}
+                  {(result.voc.painPoints || []).map((p, i) => {
+                    const hasQuote = p.quote && !p.quote.toLowerCase().includes('không có trích dẫn') && !p.quote.toLowerCase().includes('chưa có trích dẫn');
+                    return (
+                      <div key={i} className="p-3 rounded-lg border border-slate-200 bg-white text-xs space-y-1.5">
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-900">{p.pain}</span>
+                          <MetricBadge
+                            type={hasQuote ? 'empirical' : 'qualitative_estimate'}
+                            basis={hasQuote ? 'Trích dẫn nguyên văn phản hồi thực tế từ khách hàng' : 'Giả định định tính chưa có trích dẫn trực tiếp'}
+                            compact
+                          />
+                        </div>
+                        {p.quote && (
+                          <p className="italic text-slate-600 text-[11px] bg-slate-50 p-2 rounded border border-slate-100">
+                            "{p.quote}"
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
