@@ -6,16 +6,20 @@ export default function Header({ currentModel, onModelChange, onOpenSettings, ac
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-2.5 bg-white border-b border-slate-200 shadow-xs">
       <div className="flex items-center gap-3">
-        <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
-          <Sparkles className="h-4 w-4" />
-        </div>
-        <div>
-          <h1 className="text-sm font-bold text-slate-900 tracking-tight">Marketing AI Hub</h1>
-          <p className="text-[10px] text-slate-400">Nghiên cứu thị trường ➔ Chiến lược ➔ Lịch nội dung có truy vết</p>
+        <div className="flex items-center gap-2.5 cursor-default select-none group">
+          <div className="relative h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 ring-1 ring-black/5 transition-all duration-200 group-hover:scale-105 group-hover:shadow-indigo-500/35">
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/10 to-white/25 pointer-events-none" />
+            <Sparkles className="h-4.5 w-4.5 text-white drop-shadow-xs" />
+          </div>
+          <h1 className="text-[15px] font-extrabold text-slate-900 tracking-tight flex items-center gap-1">
+            <span>Marketing</span>
+            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-black">AI</span>
+            <span className="text-slate-800 font-bold">Hub</span>
+          </h1>
         </div>
 
         {/* Project Selector Trigger */}
-        <div className="hidden sm:flex items-center ml-3 pl-3 border-l border-slate-200">
+        <div className="hidden sm:flex items-center ml-2 pl-3 border-l border-slate-200">
           <button
             onClick={onOpenProjectSelector}
             className="h-9 flex items-center gap-2 px-3.5 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 hover:border-slate-400 text-xs font-medium transition-all shadow-xs cursor-pointer group"
