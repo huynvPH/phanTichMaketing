@@ -330,8 +330,6 @@ async def comments(req: CommentsReq):
     try:
         async with crawler_for(req.profile) as c:
             r = await c.arun(req.url, config=cfg)
-    except HTTPException:
-        raise
     except Exception:
         raise HTTPException(502, "Không crawl được trang, thử lại sau.")
 
@@ -394,17 +392,13 @@ async def research(req: ResearchReq):
     async def _fill(source: dict):
         async with sem:
             try:
-                if source["platform"] == "youtube":
-                    r = await asyncio.wait_for(comments(CommentsReq(url=source["url"], max=100)), timeout=120)
-                    source["comments"] = r["comments"]
-                    source["title"] = source.get("title") or r.get("title")
-                elif source["platform"] == "facebook":
+                if source["platform"] in ("youtube", "facebook"):
                     r = await asyncio.wait_for(
                         comments(
                             CommentsReq(
                                 url=source["url"],
                                 max=100,
-                                profile="facebook" if has_fb_profile else None,
+                                profile="facebook" if (source["platform"] == "facebook" and has_fb_profile) else None,
                                 llm=req.llm,
                             )
                         ),
@@ -428,7 +422,7 @@ async def research(req: ResearchReq):
     for s in sources:
         header = f"=== [{s['platform']}] {s.get('title') or s['url']} ===\n{s['url']}\n"
         if s.get("comments"):
-            body = "\n".join(f"- {c['author']}: {c['text']} ({c.get('likes', 0)} likes)" for c in s["comments"])
+            body = "\n".join(f"- {c.get('author') or '?'}: {c['text']} ({c.get('likes') or 0} likes)" for c in s["comments"])
         else:
             body = s.get("markdown_chunk") or ""
         blocks.append(header + body)

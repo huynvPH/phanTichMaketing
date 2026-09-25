@@ -314,7 +314,6 @@ requires-dist = [
     { name = "cssselect", specifier = ">=1.2.0" },
     { name = "fake-useragent", specifier = ">=2.0.3" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "httpx", specifier = ">=0.27.2" },
     { name = "httpx", extras = ["http2"], specifier = ">=0.27.2" },
     { name = "lark", specifier = ">=1.2.2" },
     { name = "lxml", specifier = ">=5.3,<7" },
