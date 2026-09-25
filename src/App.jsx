@@ -134,6 +134,18 @@ export default function App() {
     showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
   };
 
+  const handleResetExecutive = () => {
+    setResearchContext((prev) => {
+      const updated = { ...prev, executive: null };
+      saveProjectData(activeProjectId, {
+        researchContext: updated,
+        strategyData,
+        calendarData,
+      });
+      return updated;
+    });
+  };
+
   const handleSaveCompetitorVideos = (analyzed) => {
     setResearchContext((prev) => {
       const updated = {
@@ -235,6 +247,7 @@ export default function App() {
               currentModel={currentModel}
               researchContext={researchContext}
               onSaveAllResearch={handleSaveAllResearch}
+              onResetResearch={handleResetExecutive}
               onNavigateToStrategy={() => setActiveTab('strategy')}
               onNavigateToCompetitor={() => setActiveTab('competitor_videos')}
               onSyncToNotion={handleSyncToNotion}

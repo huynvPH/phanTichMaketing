@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import MetricBadge from '../components/MetricBadge';
 import DataVerificationCard from '../components/DataVerificationCard';
+import CrawlPanel from '../components/CrawlPanel';
 import { readLS, writeLS, downloadFile } from '../utils/projectManager';
 
 const EMPTY_FORM = {
@@ -31,6 +32,7 @@ export default function ExecutiveResearchView({
   currentModel,
   researchContext,
   onSaveAllResearch,
+  onResetResearch,
   onNavigateToStrategy,
   onNavigateToCompetitor,
   onSyncToNotion
@@ -40,6 +42,7 @@ export default function ExecutiveResearchView({
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('all');
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [crawlKey, setCrawlKey] = useState(0);
 
   // Result: theo dự án đang chọn (không dùng key localStorage global)
   const result = researchContext?.executive || null;
@@ -101,13 +104,15 @@ export default function ExecutiveResearchView({
   };
 
   const handleResetForm = () => {
-    if (window.confirm('Bạn có chắc chắn muốn làm mới form nhập liệu?')) {
+    if (window.confirm('Làm mới sẽ xóa toàn bộ dữ liệu nhập và kết quả phân tích Tầng 1 hiện tại. Tiếp tục?')) {
       setFormData(EMPTY_FORM);
       setRawTextOutput('');
       try {
         localStorage.removeItem('marketing_executive_form');
         localStorage.removeItem('marketing_executive_raw');
       } catch {}
+      onResetResearch?.();
+      setCrawlKey((k) => k + 1);
     }
   };
 
@@ -376,6 +381,27 @@ export default function ExecutiveResearchView({
             <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Dán các bình luận, phản hồi, review hoặc tin nhắn thực tế của khách hàng:
             </label>
+            <div className="mb-3">
+              <CrawlPanel
+                key={crawlKey}
+                currentModel={currentModel}
+                context={{
+                  product: formData.productName,
+                  industry: formData.industry,
+                  audience: formData.targetAudience,
+                  goal: formData.businessGoal,
+                }}
+                // Crawl chạy vài phút: nối vào giá trị MỚI NHẤT (prev) để không ghi đè chữ người dùng gõ trong lúc chờ
+                onAppend={(text) =>
+                  setFormData((prev) => {
+                    const cur = prev.customerPainRaw || '';
+                    const updated = { ...prev, customerPainRaw: cur.trim() ? `${cur}\n\n${text}` : text };
+                    writeLS('marketing_executive_form', updated);
+                    return updated;
+                  })
+                }
+              />
+            </div>
             <textarea
               rows={6}
               value={formData.customerPainRaw}
