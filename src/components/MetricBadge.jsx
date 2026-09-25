@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, BarChart2, Info, HelpCircle } from 'lucide-react';
+import { Sparkles, BarChart2, Info } from 'lucide-react';
 
 /**
  * MetricBadge

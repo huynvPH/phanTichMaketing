@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Cpu, ChevronDown, Check, Zap, Server, Cloud, RefreshCw, Search, PlusCircle } from 'lucide-react';
+import { readLS, writeLS } from '../utils/projectManager';
 
 export const DEFAULT_AI_MODELS = [
   // Google Gemini
@@ -25,6 +26,17 @@ export const DEFAULT_AI_MODELS = [
   { id: 'local-model', provider: 'local', name: 'Local AI (Ollama / LM Studio)', tag: 'Offline 0đ', category: 'Cục bộ' },
 ];
 
+// Gộp danh sách model động mới quét được vào danh sách đã lưu (model mới ghi đè model trùng id), rồi lưu lại
+export function mergeDynamicModels(newList) {
+  const saved = readLS('marketing_dynamic_models', []);
+  const map = new Map();
+  saved.forEach((m) => map.set(m.id, m));
+  newList.forEach((m) => map.set(m.id, m));
+  const merged = Array.from(map.values());
+  writeLS('marketing_dynamic_models', merged);
+  return merged;
+}
+
 export default function ModelSelector({ currentModel, onModelChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,20 +45,11 @@ export default function ModelSelector({ currentModel, onModelChange }) {
   const dropdownRef = useRef(null);
 
   // Dynamic models stored in browser localStorage
-  const [dynamicModels, setDynamicModels] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_dynamic_models');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [dynamicModels, setDynamicModels] = useState(() => readLS('marketing_dynamic_models', []));
 
   const loadSavedDynamicModels = () => {
-    try {
-      const saved = localStorage.getItem('marketing_dynamic_models');
-      if (saved) setDynamicModels(JSON.parse(saved));
-    } catch {}
+    const saved = readLS('marketing_dynamic_models', null);
+    if (saved) setDynamicModels(saved);
   };
 
   useEffect(() => {
@@ -130,13 +133,7 @@ export default function ModelSelector({ currentModel, onModelChange }) {
       }
 
       if (newDiscovered.length > 0) {
-        // Merge with existing dynamic models
-        const existingMap = new Map();
-        dynamicModels.forEach((m) => existingMap.set(m.id, m));
-        newDiscovered.forEach((m) => existingMap.set(m.id, m));
-        const merged = Array.from(existingMap.values());
-        setDynamicModels(merged);
-        localStorage.setItem('marketing_dynamic_models', JSON.stringify(merged));
+        setDynamicModels(mergeDynamicModels(newDiscovered));
       }
     } catch (e) {
       console.warn('Lỗi làm mới models:', e);
@@ -167,9 +164,7 @@ export default function ModelSelector({ currentModel, onModelChange }) {
 
     const updated = [newModel, ...dynamicModels.filter((m) => m.id !== cleanId)];
     setDynamicModels(updated);
-    try {
-      localStorage.setItem('marketing_dynamic_models', JSON.stringify(updated));
-    } catch {}
+    writeLS('marketing_dynamic_models', updated);
 
     onModelChange(cleanId);
     setCustomModelId('');

@@ -1,18 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, CheckCircle, AlertCircle, RefreshCw, ExternalLink, Database, Cpu, Server } from 'lucide-react';
+import { X, Key, CheckCircle, AlertCircle, RefreshCw, Database, Cpu, Server } from 'lucide-react';
+import { mergeDynamicModels } from './ModelSelector';
+import { fetchNotionTargets } from '../utils/notionClient';
+
+const PROVIDER_CARDS = [
+  {
+    id: '9router',
+    field: 'nineRouterApiKey',
+    icon: Server,
+    iconColor: 'text-indigo-600',
+    label: '9Router Gateway (Đa mô hình: Claude, GPT, Gemini)',
+    badge: 'Khuyên dùng',
+    placeholder: 'sk-...',
+    testLabel: '9Router',
+    btnColor: 'bg-indigo-600 hover:bg-indigo-700',
+  },
+  {
+    id: 'gemini',
+    field: 'geminiApiKey',
+    icon: Cpu,
+    iconColor: 'text-sky-600',
+    label: 'Google Gemini API (Miễn phí 100%)',
+    link: { href: 'https://aistudio.google.com/app/apikey', label: 'Lấy API Key Miễn Phí ↗' },
+    placeholder: 'AIzaSy...',
+    testLabel: 'Gemini',
+    btnColor: 'bg-sky-600 hover:bg-sky-700',
+  },
+  {
+    id: 'openai',
+    field: 'openaiApiKey',
+    icon: Cpu,
+    iconColor: 'text-emerald-600',
+    label: 'OpenAI API (GPT-4o, o3-mini)',
+    link: { href: 'https://platform.openai.com/api-keys', label: 'Lấy API Key OpenAI ↗' },
+    placeholder: 'sk-proj-...',
+    testLabel: 'OpenAI',
+    btnColor: 'bg-emerald-600 hover:bg-emerald-700',
+  },
+  {
+    id: 'claude',
+    field: 'anthropicApiKey',
+    icon: Cpu,
+    iconColor: 'text-amber-700',
+    label: 'Anthropic Claude API (Sonnet, Haiku)',
+    link: { href: 'https://console.anthropic.com/settings/keys', label: 'Lấy Claude Key ↗' },
+    placeholder: 'sk-ant-...',
+    testLabel: 'Claude',
+    btnColor: 'bg-amber-600 hover:bg-amber-700',
+  },
+];
 
 export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
   const [formData, setFormData] = useState({
     openaiApiKey: '',
     anthropicApiKey: '',
     geminiApiKey: '',
-    openrouterApiKey: '',
-    openrouterModel: 'deepseek/deepseek-chat',
     nineRouterApiKey: '',
-    nineRouterBaseUrl: 'http://localhost:20128/v1',
-    nineRouterModel: 'ag/claude-sonnet-4-6',
-    localBaseUrl: 'http://localhost:20128/v1',
-    localModel: 'ag/claude-sonnet-4-6',
     notionToken: '',
     notionParentId: '',
     notionParentType: 'page',
@@ -20,9 +63,7 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
 
   const [testResults, setTestResults] = useState({});
   const [loadingTest, setLoadingTest] = useState({});
-  const [saving, setSaving] = useState(false);
   const [notionTargets, setNotionTargets] = useState([]);
-  const [loadingTargets, setLoadingTargets] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -38,12 +79,9 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
           setFormData((prev) => ({
             ...prev,
             nineRouterApiKey: localKeys.nineRouterApiKey || data.nineRouterApiKey || '',
-            nineRouterBaseUrl: localKeys.nineRouterBaseUrl || data.nineRouterBaseUrl || 'http://localhost:20128/v1',
-            nineRouterModel: localKeys.nineRouterModel || data.nineRouterModel || 'ag/claude-sonnet-4-6',
             openaiApiKey: localKeys.openaiApiKey || (data.maskedOpenAI ? prev.openaiApiKey : ''),
             anthropicApiKey: localKeys.anthropicApiKey || (data.maskedClaude ? prev.anthropicApiKey : ''),
             geminiApiKey: localKeys.geminiApiKey || (data.maskedGemini ? prev.geminiApiKey : ''),
-            openrouterApiKey: localKeys.openrouterApiKey || prev.openrouterApiKey || '',
             notionToken: localKeys.notionToken || prev.notionToken || '',
             notionParentId: localKeys.notionParentId || data.notionParentId || '',
             notionParentType: localKeys.notionParentType || data.notionParentType || 'page',
@@ -55,31 +93,17 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
     }
   }, [isOpen]);
 
-  const loadNotionPages = () => {
-    setLoadingTargets(true);
-    fetch('/api/notion/targets')
-      .then((res) => res.json())
-      .then((res) => {
-        if (res.success && res.targets) {
-          setNotionTargets(res.targets);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoadingTargets(false));
+  const loadNotionPages = async () => {
+    setNotionTargets(await fetchNotionTargets());
   };
 
   const handleTest = async (provider) => {
     setLoadingTest((prev) => ({ ...prev, [provider]: true }));
     try {
       let apiKey = '';
-      let model = '';
-      let customBaseUrl = '';
 
-      if (provider === '9router') {
-        apiKey = formData.nineRouterApiKey;
-        model = formData.nineRouterModel;
-        customBaseUrl = formData.nineRouterBaseUrl;
-      } else if (provider === 'openai') apiKey = formData.openaiApiKey;
+      if (provider === '9router') apiKey = formData.nineRouterApiKey;
+      else if (provider === 'openai') apiKey = formData.openaiApiKey;
       else if (provider === 'claude') apiKey = formData.anthropicApiKey;
       else if (provider === 'gemini') apiKey = formData.geminiApiKey;
       else if (provider === 'notion') apiKey = formData.notionToken;
@@ -87,25 +111,15 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
       const res = await fetch('/api/test-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey, model, customBaseUrl }),
+        body: JSON.stringify({ provider, apiKey }),
       });
       const data = await res.json();
       setTestResults((prev) => ({ ...prev, [provider]: data }));
 
       // Lưu trữ danh sách models tìm thấy vào localStorage và thông báo cho ModelSelector
       if (data.success && Array.isArray(data.models) && data.models.length > 0) {
-        try {
-          const saved = localStorage.getItem('marketing_dynamic_models');
-          const existing = saved ? JSON.parse(saved) : [];
-          const map = new Map();
-          existing.forEach((m) => map.set(m.id, m));
-          data.models.forEach((m) => map.set(m.id, m));
-          const merged = Array.from(map.values());
-          localStorage.setItem('marketing_dynamic_models', JSON.stringify(merged));
-          window.dispatchEvent(new Event('marketing_models_updated'));
-        } catch (e) {
-          console.warn('Lỗi lưu dynamic models:', e);
-        }
+        mergeDynamicModels(data.models);
+        window.dispatchEvent(new Event('marketing_models_updated'));
       }
 
       if (provider === 'notion' && data.success) {
@@ -118,54 +132,42 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
     }
   };
 
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    setSaving(true);
+    // 1. Luôn lưu vào localStorage của trình duyệt (Hoạt động 100% trên Vercel & Serverless)
     try {
-      // 1. Luôn lưu vào localStorage của trình duyệt (Hoạt động 100% trên Vercel & Serverless)
-      try {
-        const toSave = {
-          openaiApiKey: formData.openaiApiKey,
-          anthropicApiKey: formData.anthropicApiKey,
-          geminiApiKey: formData.geminiApiKey,
-          openrouterApiKey: formData.openrouterApiKey,
-          nineRouterApiKey: formData.nineRouterApiKey,
-          nineRouterBaseUrl: formData.nineRouterBaseUrl,
-          nineRouterModel: formData.nineRouterModel,
-          notionToken: formData.notionToken,
-          notionParentId: formData.notionParentId,
-          notionParentType: formData.notionParentType,
-        };
-        localStorage.setItem('marketing_client_keys', JSON.stringify(toSave));
-      } catch (e) {
-        console.warn('Lỗi lưu localStorage:', e);
-      }
-
-      // 2. Gửi lưu server (dành cho local development)
-      const payload = {};
-      if (formData.nineRouterApiKey) payload.nineRouterApiKey = formData.nineRouterApiKey;
-      if (formData.nineRouterBaseUrl) payload.nineRouterBaseUrl = formData.nineRouterBaseUrl;
-      if (formData.nineRouterModel) payload.nineRouterModel = formData.nineRouterModel;
-      if (formData.openaiApiKey) payload.openaiApiKey = formData.openaiApiKey;
-      if (formData.anthropicApiKey) payload.anthropicApiKey = formData.anthropicApiKey;
-      if (formData.geminiApiKey) payload.geminiApiKey = formData.geminiApiKey;
-      if (formData.notionToken) payload.notionToken = formData.notionToken;
-      payload.notionParentId = formData.notionParentId;
-      payload.notionParentType = formData.notionParentType;
-
-      fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
-
-      if (onConfigUpdated) onConfigUpdated();
-      onClose();
-    } catch (err) {
-      alert('Lỗi lưu cấu hình: ' + err.message);
-    } finally {
-      setSaving(false);
+      const toSave = {
+        openaiApiKey: formData.openaiApiKey,
+        anthropicApiKey: formData.anthropicApiKey,
+        geminiApiKey: formData.geminiApiKey,
+        nineRouterApiKey: formData.nineRouterApiKey,
+        notionToken: formData.notionToken,
+        notionParentId: formData.notionParentId,
+        notionParentType: formData.notionParentType,
+      };
+      localStorage.setItem('marketing_client_keys', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('Lỗi lưu localStorage:', e);
     }
+
+    // 2. Gửi lưu server (dành cho local development)
+    const payload = {};
+    if (formData.nineRouterApiKey) payload.nineRouterApiKey = formData.nineRouterApiKey;
+    if (formData.openaiApiKey) payload.openaiApiKey = formData.openaiApiKey;
+    if (formData.anthropicApiKey) payload.anthropicApiKey = formData.anthropicApiKey;
+    if (formData.geminiApiKey) payload.geminiApiKey = formData.geminiApiKey;
+    if (formData.notionToken) payload.notionToken = formData.notionToken;
+    payload.notionParentId = formData.notionParentId;
+    payload.notionParentType = formData.notionParentType;
+
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+
+    if (onConfigUpdated) onConfigUpdated();
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -189,160 +191,53 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4 text-xs">
-          {/* 9Router */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-            <div className="flex items-center justify-between font-bold text-slate-900">
-              <span className="flex items-center gap-1.5">
-                <Server className="h-4 w-4 text-indigo-600" /> 9Router Gateway (Đa mô hình: Claude, GPT, Gemini)
-              </span>
-              <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                Khuyên dùng
-              </span>
+          {PROVIDER_CARDS.map((p) => (
+            <div key={p.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between font-bold text-slate-900">
+                <span className="flex items-center gap-1.5">
+                  <p.icon className={`h-4 w-4 ${p.iconColor}`} /> {p.label}
+                </span>
+                {p.badge && (
+                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    {p.badge}
+                  </span>
+                )}
+                {p.link && (
+                  <a
+                    href={p.link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 hover:underline text-[11px] font-normal"
+                  >
+                    {p.link.label}
+                  </a>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  placeholder={p.placeholder}
+                  value={formData[p.field]}
+                  onChange={(e) => setFormData({ ...formData, [p.field]: e.target.value })}
+                  className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleTest(p.id)}
+                  disabled={loadingTest[p.id]}
+                  className={`px-3 py-1.5 rounded-lg ${p.btnColor} text-white font-semibold transition`}
+                >
+                  {loadingTest[p.id] ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : `Kiểm tra ${p.testLabel}`}
+                </button>
+              </div>
+              {testResults[p.id] && (
+                <p className={`text-[11px] flex items-center gap-1 ${testResults[p.id].success ? 'text-emerald-700 font-semibold' : 'text-rose-600'}`}>
+                  {testResults[p.id].success ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+                  {testResults[p.id].message}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="sk-..."
-                value={formData.nineRouterApiKey}
-                onChange={(e) => setFormData({ ...formData, nineRouterApiKey: e.target.value })}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
-              />
-              <button
-                type="button"
-                onClick={() => handleTest('9router')}
-                disabled={loadingTest['9router']}
-                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition"
-              >
-                {loadingTest['9router'] ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Kiểm tra 9Router'}
-              </button>
-            </div>
-            {testResults['9router'] && (
-              <p className={`text-[11px] flex items-center gap-1 ${testResults['9router'].success ? 'text-emerald-700 font-semibold' : 'text-rose-600'}`}>
-                {testResults['9router'].success ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                {testResults['9router'].message}
-              </p>
-            )}
-          </div>
-
-          {/* Google Gemini (Free API) */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-            <div className="flex items-center justify-between font-bold text-slate-900">
-              <span className="flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-sky-600" /> Google Gemini API (Miễn phí 100%)
-              </span>
-              <a
-                href="https://aistudio.google.com/app/apikey"
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 hover:underline text-[11px] font-normal"
-              >
-                Lấy API Key Miễn Phí ↗
-              </a>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="AIzaSy..."
-                value={formData.geminiApiKey}
-                onChange={(e) => setFormData({ ...formData, geminiApiKey: e.target.value })}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
-              />
-              <button
-                type="button"
-                onClick={() => handleTest('gemini')}
-                disabled={loadingTest.gemini}
-                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-semibold transition"
-              >
-                {loadingTest.gemini ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Kiểm tra Gemini'}
-              </button>
-            </div>
-            {testResults.gemini && (
-              <p className={`text-[11px] flex items-center gap-1 ${testResults.gemini.success ? 'text-emerald-700 font-semibold' : 'text-rose-600'}`}>
-                {testResults.gemini.success ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                {testResults.gemini.message}
-              </p>
-            )}
-          </div>
-
-          {/* OpenAI (ChatGPT) */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-            <div className="flex items-center justify-between font-bold text-slate-900">
-              <span className="flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-emerald-600" /> OpenAI API (GPT-4o, o3-mini)
-              </span>
-              <a
-                href="https://platform.openai.com/api-keys"
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 hover:underline text-[11px] font-normal"
-              >
-                Lấy API Key OpenAI ↗
-              </a>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="sk-proj-..."
-                value={formData.openaiApiKey}
-                onChange={(e) => setFormData({ ...formData, openaiApiKey: e.target.value })}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
-              />
-              <button
-                type="button"
-                onClick={() => handleTest('openai')}
-                disabled={loadingTest.openai}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition"
-              >
-                {loadingTest.openai ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Kiểm tra OpenAI'}
-              </button>
-            </div>
-            {testResults.openai && (
-              <p className={`text-[11px] flex items-center gap-1 ${testResults.openai.success ? 'text-emerald-700 font-semibold' : 'text-rose-600'}`}>
-                {testResults.openai.success ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                {testResults.openai.message}
-              </p>
-            )}
-          </div>
-
-          {/* Anthropic Claude */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-            <div className="flex items-center justify-between font-bold text-slate-900">
-              <span className="flex items-center gap-1.5">
-                <Cpu className="h-4 w-4 text-amber-700" /> Anthropic Claude API (Sonnet, Haiku)
-              </span>
-              <a
-                href="https://console.anthropic.com/settings/keys"
-                target="_blank"
-                rel="noreferrer"
-                className="text-indigo-600 hover:underline text-[11px] font-normal"
-              >
-                Lấy Claude Key ↗
-              </a>
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                placeholder="sk-ant-..."
-                value={formData.anthropicApiKey}
-                onChange={(e) => setFormData({ ...formData, anthropicApiKey: e.target.value })}
-                className="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-900 text-xs focus:outline-none focus:border-indigo-600"
-              />
-              <button
-                type="button"
-                onClick={() => handleTest('claude')}
-                disabled={loadingTest.claude}
-                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition"
-              >
-                {loadingTest.claude ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : 'Kiểm tra Claude'}
-              </button>
-            </div>
-            {testResults.claude && (
-              <p className={`text-[11px] flex items-center gap-1 ${testResults.claude.success ? 'text-emerald-700 font-semibold' : 'text-rose-600'}`}>
-                {testResults.claude.success ? <CheckCircle className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
-                {testResults.claude.message}
-              </p>
-            )}
-          </div>
+          ))}
 
           {/* Notion */}
           <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
@@ -423,10 +318,9 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
             className="px-4 py-1.5 rounded-lg btn-brand text-white font-semibold transition"
           >
-            {saving ? 'Đang lưu...' : 'Lưu Cấu Hình'}
+            Lưu Cấu Hình
           </button>
         </div>
       </div>

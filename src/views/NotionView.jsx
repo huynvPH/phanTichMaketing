@@ -1,28 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Database, ExternalLink, RefreshCw, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { ExternalLink, RefreshCw, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
+import { readLS } from '../utils/projectManager';
+import { fetchNotionTargets } from '../utils/notionClient';
 
 export default function NotionView({ config, onOpenSettings }) {
   const [targets, setTargets] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [syncedItems, setSyncedItems] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('notion_synced_reports') || '[]');
-    } catch {
-      return [];
-    }
-  });
+  const [syncedItems, setSyncedItems] = useState(() => readLS('notion_synced_reports', []));
 
-  const fetchTargets = () => {
+  const fetchTargets = async () => {
     setLoading(true);
-    fetch('/api/notion/targets')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.targets) {
-          setTargets(data.targets);
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    setTargets(await fetchNotionTargets());
+    setLoading(false);
   };
 
   useEffect(() => {

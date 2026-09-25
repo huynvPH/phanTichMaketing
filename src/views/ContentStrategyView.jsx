@@ -1,55 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  ArrowRight, 
-  Share2, 
-  Check, 
-  Layers, 
-  Compass, 
-  CheckCircle2, 
-  XCircle,
-  RotateCcw
+import {
+  Sparkles,
+  ArrowRight,
+  Share2,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
+import { readLS, writeLS } from '../utils/projectManager';
 
-export default function ContentStrategyView({ 
-  currentModel, 
-  researchContext, 
-  strategyData, 
-  onSaveStrategy, 
+export default function ContentStrategyView({
+  currentModel,
+  researchContext,
+  strategyData,
+  onSaveStrategy,
   onSyncToNotion,
-  onNavigateToCalendar 
+  onNavigateToCalendar
 }) {
   // Lấy dữ liệu sản phẩm ban đầu từ Tầng 1 nếu có sẵn
-  const initialProduct = researchContext?.executive?.framing?.clarifiedGoal 
-    || researchContext?.framing?.formData?.goal 
+  const initialProduct = researchContext?.executive?.framing?.clarifiedGoal
+    || researchContext?.framing?.formData?.goal
     || '';
 
   const initialAudience = researchContext?.executive?.voc?.summary
     || '';
 
-  const [formData, setFormData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_strategy_form');
-      return saved ? JSON.parse(saved) : {
-        brandPositioning: initialProduct,
-        targetCustomer: initialAudience,
-        brandTonePreference: '',
-      };
-    } catch {
-      return {
-        brandPositioning: initialProduct,
-        targetCustomer: initialAudience,
-        brandTonePreference: '',
-      };
-    }
-  });
+  const [formData, setFormData] = useState(() => readLS('marketing_strategy_form', {
+    brandPositioning: initialProduct,
+    targetCustomer: initialAudience,
+    brandTonePreference: '',
+  }));
 
   const [loading, setLoading] = useState(false);
-  const [strategy, setStrategy] = useState(strategyData || null);
-
-  useEffect(() => {
-    setStrategy(strategyData || null);
-  }, [strategyData]);
+  // Chiến lược: dùng thẳng prop từ dự án đang chọn (không mirror state cục bộ)
+  const strategy = strategyData || null;
 
   // Cập nhật lại form nếu có dữ liệu mới từ researchContext
   useEffect(() => {
@@ -64,9 +47,7 @@ export default function ContentStrategyView({
   const handleInputChange = (field, value) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
-      try {
-        localStorage.setItem('marketing_strategy_form', JSON.stringify(updated));
-      } catch {}
+      writeLS('marketing_strategy_form', updated);
       return updated;
     });
   };
@@ -75,11 +56,10 @@ export default function ContentStrategyView({
     if (window.confirm('Bạn có chắc chắn muốn làm mới phần chiến lược?')) {
       const empty = { brandPositioning: '', targetCustomer: '', brandTonePreference: '' };
       setFormData(empty);
-      setStrategy(null);
       try {
         localStorage.removeItem('marketing_strategy_form');
-        localStorage.removeItem('marketing_brand_strategy');
       } catch {}
+      if (onSaveStrategy) onSaveStrategy(null);
     }
   };
 
@@ -116,7 +96,6 @@ export default function ContentStrategyView({
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Lỗi khi tạo chiến lược');
 
-      setStrategy(data.data);
       if (onSaveStrategy) onSaveStrategy(data.data);
     } catch (err) {
       alert('Lỗi tạo chiến lược: ' + err.message);

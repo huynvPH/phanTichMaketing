@@ -1,66 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  ArrowRight, 
-  Copy, 
-  Check, 
-  Share2, 
-  Compass, 
-  Search, 
-  MessageSquare, 
-  Swords, 
-  Tag, 
-  Layers,
+import {
+  Sparkles,
+  ArrowRight,
+  Copy,
+  Check,
+  Share2,
+  Compass,
+  Search,
+  MessageSquare,
+  Swords,
+  Tag,
   Download,
   FileText,
   AlertTriangle
 } from 'lucide-react';
 import MetricBadge from '../components/MetricBadge';
 import DataVerificationCard from '../components/DataVerificationCard';
+import { readLS, writeLS, downloadFile } from '../utils/projectManager';
 
-export default function ExecutiveResearchView({ 
-  currentModel, 
-  researchContext, 
-  onSaveAllResearch, 
-  onNavigateToStrategy, 
+const EMPTY_FORM = {
+  productName: '',
+  industry: '',
+  targetAudience: '',
+  businessGoal: '',
+  customerPainRaw: '',
+  competitorAndOffer: '',
+};
+
+export default function ExecutiveResearchView({
+  currentModel,
+  researchContext,
+  onSaveAllResearch,
+  onNavigateToStrategy,
   onNavigateToCompetitor,
-  onSyncToNotion 
+  onSyncToNotion
 }) {
-  const [formData, setFormData] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_executive_form');
-      return saved ? JSON.parse(saved) : {
-        productName: '',
-        industry: '',
-        targetAudience: '',
-        businessGoal: '',
-        customerPainRaw: '',
-        competitorAndOffer: '',
-      };
-    } catch {
-      return {
-        productName: '',
-        industry: '',
-        targetAudience: '',
-        businessGoal: '',
-        customerPainRaw: '',
-        competitorAndOffer: '',
-      };
-    }
-  });
+  const [formData, setFormData] = useState(() => readLS('marketing_executive_form', EMPTY_FORM));
 
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('all');
   const [copiedIndex, setCopiedIndex] = useState(null);
 
-  const [result, setResult] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_executive_result');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Result: theo dự án đang chọn (không dùng key localStorage global)
+  const result = researchContext?.executive || null;
 
   const [rawTextOutput, setRawTextOutput] = useState(() => {
     try {
@@ -113,29 +95,17 @@ export default function ExecutiveResearchView({
   const handleInputChange = (field, value) => {
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
-      try {
-        localStorage.setItem('marketing_executive_form', JSON.stringify(updated));
-      } catch {}
+      writeLS('marketing_executive_form', updated);
       return updated;
     });
   };
 
   const handleResetForm = () => {
     if (window.confirm('Bạn có chắc chắn muốn làm mới form nhập liệu?')) {
-      const empty = {
-        productName: '',
-        industry: '',
-        targetAudience: '',
-        businessGoal: '',
-        customerPainRaw: '',
-        competitorAndOffer: '',
-      };
-      setFormData(empty);
-      setResult(null);
+      setFormData(EMPTY_FORM);
       setRawTextOutput('');
       try {
         localStorage.removeItem('marketing_executive_form');
-        localStorage.removeItem('marketing_executive_result');
         localStorage.removeItem('marketing_executive_raw');
       } catch {}
     }
@@ -185,12 +155,6 @@ export default function ExecutiveResearchView({
       }
 
       const analyzed = data.data;
-      setResult(analyzed);
-      try {
-        if (analyzed) {
-          localStorage.setItem('marketing_executive_result', JSON.stringify(analyzed));
-        }
-      } catch {}
 
       if (onSaveAllResearch && analyzed) {
         onSaveAllResearch(analyzed, formData);
@@ -285,16 +249,12 @@ export default function ExecutiveResearchView({
     ];
 
     const mdContent = lines.join('\n');
-    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
     const safeName = pName.replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
-    link.href = url;
-    link.download = `Bao_Cao_${safeName}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.md`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadFile(
+      `Bao_Cao_${safeName}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.md`,
+      mdContent,
+      'text/markdown;charset=utf-8;'
+    );
   };
 
   return (
@@ -651,66 +611,26 @@ export default function ExecutiveResearchView({
 
           {/* Branch Filter Tabs */}
           <div className="flex items-center gap-1 border-b border-slate-200 pb-2 overflow-x-auto text-xs font-medium">
-            <button
-              onClick={() => setActiveSection('all')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'all'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Tất cả 5 nhánh
-            </button>
-            <button
-              onClick={() => setActiveSection('framing')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'framing'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              1. Định Khung
-            </button>
-            <button
-              onClick={() => setActiveSection('search')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'search'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              2. Nhu Cầu Tìm Kiếm
-            </button>
-            <button
-              onClick={() => setActiveSection('voc')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'voc'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              3. Tiếng Nói Khách Hàng (VoC)
-            </button>
-            <button
-              onClick={() => setActiveSection('competitor')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'competitor'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              4. Đối Thủ
-            </button>
-            <button
-              onClick={() => setActiveSection('offer')}
-              className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
-                activeSection === 'offer'
-                  ? 'btn-brand text-white font-semibold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              5. Quảng Cáo & Offer
-            </button>
+            {[
+              ['all', 'Tất cả 5 nhánh'],
+              ['framing', '1. Định Khung'],
+              ['search', '2. Nhu Cầu Tìm Kiếm'],
+              ['voc', '3. Tiếng Nói Khách Hàng (VoC)'],
+              ['competitor', '4. Đối Thủ'],
+              ['offer', '5. Quảng Cáo & Offer'],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setActiveSection(id)}
+                className={`px-3 py-1.5 rounded-md transition cursor-pointer shrink-0 ${
+                  activeSection === id
+                    ? 'btn-brand text-white font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {/* Section: 1. Framing */}

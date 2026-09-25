@@ -1,34 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  ArrowRight, 
-  Copy, 
-  Check, 
-  Share2, 
-  Swords, 
-  Film, 
-  Link as LinkIcon, 
-  FileText, 
-  Upload, 
-  BarChart3, 
-  ShieldAlert, 
-  Compass, 
-  Layers, 
-  CheckCircle2,
+import React, { useState } from 'react';
+import {
+  Sparkles,
+  ArrowRight,
+  Copy,
+  Check,
+  Share2,
+  Film,
+  Link as LinkIcon,
+  FileText,
+  Upload,
+  ShieldAlert,
+  Compass,
   Edit3,
-  Video,
-  Volume2,
   AlertTriangle
 } from 'lucide-react';
 import MetricBadge from '../components/MetricBadge';
 import DataVerificationCard from '../components/DataVerificationCard';
 
-export default function CompetitorVideoView({ 
-  currentModel, 
-  researchContext, 
-  onSaveCompetitorData, 
-  onNavigateToStrategy, 
-  onSyncToNotion 
+export default function CompetitorVideoView({
+  currentModel,
+  researchContext,
+  onSaveCompetitorData,
+  onNavigateToStrategy,
+  onSyncToNotion
 }) {
   const [inputMode, setInputMode] = useState('links'); // 'links' | 'scripts' | 'direct' | 'upload'
   const [linksText, setLinksText] = useState('');
@@ -40,15 +34,8 @@ export default function CompetitorVideoView({
   const [processingStep, setProcessingStep] = useState(1);
   const [copiedIndex, setCopiedIndex] = useState(null);
 
-  // Result state
-  const [result, setResult] = useState(() => {
-    try {
-      const saved = localStorage.getItem('marketing_competitor_video_result');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Result: theo dự án đang chọn (không dùng key localStorage global)
+  const result = researchContext?.competitorVideo || null;
 
   const [rawTextOutput, setRawTextOutput] = useState(() => {
     try {
@@ -89,11 +76,9 @@ export default function CompetitorVideoView({
       setLinksText('');
       setScriptsText('');
       setDirectAnalysisText('');
-      setResult(null);
       setRawTextOutput('');
       setTranscriptNotice(null);
       try {
-        localStorage.removeItem('marketing_competitor_video_result');
         localStorage.removeItem('marketing_competitor_raw');
       } catch {}
     }
@@ -236,14 +221,8 @@ export default function CompetitorVideoView({
       }
 
       const analyzed = data.data;
-      setResult(analyzed);
-      try {
-        if (analyzed) {
-          localStorage.setItem('marketing_competitor_video_result', JSON.stringify(analyzed));
-        }
-      } catch {}
 
-      // Đồng bộ vào kho dữ liệu Tầng 1
+      // Đồng bộ vào kho dữ liệu Tầng 1 (result sẽ tự cập nhật qua researchContext)
       if (onSaveCompetitorData && analyzed) {
         onSaveCompetitorData(analyzed, payloadData);
       }
@@ -307,57 +286,26 @@ export default function CompetitorVideoView({
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setInputMode('links')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                inputMode === 'links'
-                  ? 'btn-brand text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <LinkIcon className="h-3.5 w-3.5" />
-              Dán Link Video / Kênh ({detectedLinks.length})
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setInputMode('scripts')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                inputMode === 'scripts'
-                  ? 'btn-brand text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Dán Lời Thoại / Transcript
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setInputMode('direct')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                inputMode === 'direct'
-                  ? 'btn-brand text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Edit3 className="h-3.5 w-3.5" />
-              Viết Phân Tích Trực Tiếp
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setInputMode('upload')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
-                inputMode === 'upload'
-                  ? 'btn-brand text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Upload className="h-3.5 w-3.5" />
-              Tải File Link (.txt / .csv)
-            </button>
+            {[
+              { id: 'links', icon: LinkIcon, label: `Dán Link Video / Kênh (${detectedLinks.length})` },
+              { id: 'scripts', icon: FileText, label: 'Dán Lời Thoại / Transcript' },
+              { id: 'direct', icon: Edit3, label: 'Viết Phân Tích Trực Tiếp' },
+              { id: 'upload', icon: Upload, label: 'Tải File Link (.txt / .csv)' },
+            ].map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setInputMode(id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 ${
+                  inputMode === id
+                    ? 'btn-brand text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
           </div>
 
           <div className="w-full sm:w-64">

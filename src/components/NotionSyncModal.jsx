@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, CheckCircle2, RefreshCw, ExternalLink, Sparkles } from 'lucide-react';
+import { X, Database, CheckCircle2, RefreshCw } from 'lucide-react';
+import { fetchNotionTargets } from '../utils/notionClient';
 
 export default function NotionSyncModal({ isOpen, onClose, exportData, config, onOpenSettings }) {
   const [title, setTitle] = useState('');
@@ -18,21 +19,15 @@ export default function NotionSyncModal({ isOpen, onClose, exportData, config, o
     }
   }, [isOpen, exportData]);
 
-  const fetchTargets = () => {
+  const fetchTargets = async () => {
     setLoadingTargets(true);
-    fetch('/api/notion/targets')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.targets) {
-          setTargets(data.targets);
-          if (!selectedTarget && data.targets.length > 0) {
-            setSelectedTarget(data.targets[0].id);
-            setTargetType(data.targets[0].type);
-          }
-        }
-      })
-      .catch(console.error)
-      .finally(() => setLoadingTargets(false));
+    const list = await fetchNotionTargets();
+    setTargets(list);
+    if (!selectedTarget && list.length > 0) {
+      setSelectedTarget(list[0].id);
+      setTargetType(list[0].type);
+    }
+    setLoadingTargets(false);
   };
 
   const handleSync = async () => {

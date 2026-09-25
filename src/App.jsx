@@ -9,11 +9,12 @@ import CompetitorVideoView from './views/CompetitorVideoView';
 import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
-import { 
-  getAllProjects, 
-  getActiveProjectId, 
-  getProjectData, 
-  saveProjectData 
+import {
+  getAllProjects,
+  getActiveProjectId,
+  getProjectData,
+  saveProjectData,
+  EMPTY_PROJECT_DATA
 } from './utils/projectManager';
 
 export default function App() {
@@ -50,13 +51,7 @@ export default function App() {
   // Shared research context & strategy across all views (nạp theo từng dự án)
   const [researchContext, setResearchContext] = useState(() => {
     const projData = getProjectData(getActiveProjectId());
-    return projData.researchContext || {
-      voc: null,
-      search: null,
-      competitor: null,
-      offer: null,
-      framing: null,
-    };
+    return projData.researchContext || EMPTY_PROJECT_DATA;
   });
 
   const [strategyData, setStrategyData] = useState(() => {
@@ -80,23 +75,10 @@ export default function App() {
   const handleProjectSwitched = (newProjId) => {
     setActiveProjectId(newProjId);
     const pData = getProjectData(newProjId);
-    const updatedCtx = pData.researchContext || {
-      voc: null,
-      search: null,
-      competitor: null,
-      offer: null,
-      framing: null,
-    };
+    const updatedCtx = pData.researchContext || EMPTY_PROJECT_DATA;
     setResearchContext(updatedCtx);
     setStrategyData(pData.strategyData || null);
     setCalendarData(pData.calendarData || null);
-
-    // Đồng bộ legacy keys
-    try {
-      localStorage.setItem('marketing_research_context', JSON.stringify(updatedCtx));
-      localStorage.setItem('marketing_brand_strategy', JSON.stringify(pData.strategyData || null));
-      localStorage.setItem('marketing_content_calendar', JSON.stringify(pData.calendarData || null));
-    } catch {}
 
     const list = getAllProjects();
     const found = list.find((p) => p.id === newProjId);
@@ -142,9 +124,6 @@ export default function App() {
           improvedOfferIdea: analyzed.offer?.improvedOfferIdea,
         },
       };
-      try {
-        localStorage.setItem('marketing_research_context', JSON.stringify(updated));
-      } catch {}
       saveProjectData(activeProjectId, {
         researchContext: updated,
         strategyData,
@@ -155,21 +134,13 @@ export default function App() {
     showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
   };
 
-  const handleSaveCompetitorVideos = (analyzed, payload) => {
+  const handleSaveCompetitorVideos = (analyzed) => {
     setResearchContext((prev) => {
       const updated = {
         ...prev,
         competitorVideo: analyzed,
-        competitor: {
-          rawText: payload?.targetIndustry ? `Ngành: ${payload.targetIndustry}\nSố lượng link: ${payload.detectedCount || 0}` : '',
-          parsedResult: analyzed,
-          winningFormats: (analyzed?.clusters || []).map(c => `${c.clusterName} (${c.percentage}): ${c.characteristics}`),
-          blueOceanAngles: analyzed?.strategicReport?.blueOceanScriptGaps || [],
-        },
+        competitor: analyzed,
       };
-      try {
-        localStorage.setItem('marketing_research_context', JSON.stringify(updated));
-      } catch {}
       saveProjectData(activeProjectId, {
         researchContext: updated,
         strategyData,
@@ -182,9 +153,6 @@ export default function App() {
 
   const handleSaveStrategy = (newStrategy) => {
     setStrategyData(newStrategy);
-    try {
-      localStorage.setItem('marketing_brand_strategy', JSON.stringify(newStrategy));
-    } catch {}
     saveProjectData(activeProjectId, {
       researchContext,
       strategyData: newStrategy,
@@ -195,9 +163,6 @@ export default function App() {
 
   const handleSaveCalendar = (newCalendar) => {
     setCalendarData(newCalendar);
-    try {
-      localStorage.setItem('marketing_content_calendar', JSON.stringify(newCalendar));
-    } catch {}
     saveProjectData(activeProjectId, {
       researchContext,
       strategyData,
@@ -222,7 +187,7 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         setConfig(data);
-        if (data.defaultModel) {
+        if (data.defaultModel && !localStorage.getItem('marketing_selected_model')) {
           setCurrentModel(data.defaultModel);
         }
       })
@@ -334,11 +299,12 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <ProjectSelectorModal
-        isOpen={isProjectSelectorOpen}
-        onClose={() => setIsProjectSelectorOpen(false)}
-        onProjectSwitched={handleProjectSwitched}
-      />
+      {isProjectSelectorOpen && (
+        <ProjectSelectorModal
+          onClose={() => setIsProjectSelectorOpen(false)}
+          onProjectSwitched={handleProjectSwitched}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,45 @@ const STORAGE_KEY_PROJECTS = 'marketing_projects_list';
 const STORAGE_KEY_ACTIVE_ID = 'marketing_active_project_id';
 const PROJECT_DATA_PREFIX = 'marketing_proj_data_';
 
+// Dữ liệu rỗng mặc định cho 1 dự án nghiên cứu
+export const EMPTY_PROJECT_DATA = {
+  voc: null,
+  search: null,
+  competitor: null,
+  offer: null,
+  framing: null,
+};
+
+// Đọc JSON an toàn từ localStorage, trả về fallback nếu lỗi/không có
+export function readLS(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Ghi JSON an toàn vào localStorage
+export function writeLS(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+  } catch {}
+}
+
+// Tạo file để tải về (JSON, Markdown, CSV...)
+export function downloadFile(filename, content, mime = 'application/json') {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Khởi tạo mặc định nếu chưa có
 function initDefaultProjectIfEmpty() {
   try {
@@ -39,13 +78,7 @@ function initDefaultProjectIfEmpty() {
       localStorage.setItem(STORAGE_KEY_ACTIVE_ID, 'default');
 
       const initialData = {
-        researchContext: legacyResearch || {
-          voc: null,
-          search: null,
-          competitor: null,
-          offer: null,
-          framing: null,
-        },
+        researchContext: legacyResearch || EMPTY_PROJECT_DATA,
         strategyData: legacyStrategy || null,
         calendarData: legacyCalendar || null,
         executiveForm: legacyExecForm || null,
@@ -96,13 +129,7 @@ export function getProjectData(projectId) {
   } catch {}
 
   return {
-    researchContext: {
-      voc: null,
-      search: null,
-      competitor: null,
-      offer: null,
-      framing: null,
-    },
+    researchContext: EMPTY_PROJECT_DATA,
     strategyData: null,
     calendarData: null,
     executiveForm: null,
@@ -143,13 +170,7 @@ export function createProject(name, initialData = null) {
   localStorage.setItem(STORAGE_KEY_ACTIVE_ID, newId);
 
   const emptyData = initialData || {
-    researchContext: {
-      voc: null,
-      search: null,
-      competitor: null,
-      offer: null,
-      framing: null,
-    },
+    researchContext: EMPTY_PROJECT_DATA,
     strategyData: null,
     calendarData: null,
     executiveForm: null,
@@ -205,17 +226,8 @@ export function exportProjectToFile(id) {
     data,
   };
 
-  const jsonStr = JSON.stringify(payload, null, 2);
-  const blob = new Blob([jsonStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
   const safeName = target.name.replace(/[^a-zA-Z0-9_\u00C0-\u024F\u1E00-\u1EFF]/g, '_');
-  a.href = url;
-  a.download = `${safeName}_marketing_backup.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  downloadFile(`${safeName}_marketing_backup.json`, JSON.stringify(payload, null, 2));
 }
 
 // Nhập dữ liệu dự án từ file JSON

@@ -1,44 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, 
-  Share2, 
-  Copy, 
-  Check, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Quote, 
-  Layers,
-  ChevronDown,
-  RotateCcw,
+import React, { useState } from 'react';
+import {
+  Sparkles,
+  Share2,
+  Copy,
+  Check,
   Download
 } from 'lucide-react';
+import { downloadFile } from '../utils/projectManager';
 
-export default function ContentCalendarView({ 
-  currentModel, 
-  researchContext, 
-  strategyData, 
-  calendarData, 
-  onSaveCalendar, 
-  onSyncToNotion 
+export default function ContentCalendarView({
+  currentModel,
+  researchContext,
+  strategyData,
+  calendarData,
+  onSaveCalendar,
+  onSyncToNotion
 }) {
   const [selectedChannel, setSelectedChannel] = useState('TikTok');
   const [period, setPeriod] = useState('7 ngày (Weekly Sprint)');
   const [loading, setLoading] = useState(false);
-  const [calendar, setCalendar] = useState(calendarData || null);
+  // Lịch: dùng thẳng prop từ dự án đang chọn (không mirror state cục bộ)
+  const calendar = calendarData || null;
   const [copiedId, setCopiedId] = useState(null);
-
-  useEffect(() => {
-    setCalendar(calendarData || null);
-  }, [calendarData]);
 
   const channels = ['TikTok', 'Facebook Fanpage', 'Shopee/Reels', 'Website/Blog SEO', 'YouTube Shorts'];
 
   const handleReset = () => {
     if (window.confirm('Bạn có chắc chắn muốn làm mới lịch nội dung?')) {
-      setCalendar(null);
-      try {
-        localStorage.removeItem('marketing_content_calendar');
-      } catch {}
+      if (onSaveCalendar) onSaveCalendar(null);
     }
   };
 
@@ -77,7 +66,6 @@ export default function ContentCalendarView({
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Lỗi khi tạo lịch');
 
-      setCalendar(data.data);
       if (onSaveCalendar) onSaveCalendar(data.data);
     } catch (err) {
       alert('Lỗi tạo lịch nội dung: ' + err.message);
@@ -143,16 +131,12 @@ export default function ContentCalendarView({
 
     // Thêm UTF-8 BOM (\uFEFF) để Excel hiển thị đúng dấu tiếng Việt
     const csvContent = '\uFEFF' + [headers.map(escapeCSV).join(','), ...rows].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
     const safeChannel = (calendar.channel || 'Lich_Content').replace(/\s+/g, '_');
-    link.href = url;
-    link.download = `${safeChannel}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadFile(
+      `${safeChannel}_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.csv`,
+      csvContent,
+      'text/csv;charset=utf-8;'
+    );
   };
 
   return (

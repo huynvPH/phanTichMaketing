@@ -23,9 +23,7 @@ import {
   importProjectFromFile 
 } from '../utils/projectManager';
 
-export default function ProjectSelectorModal({ isOpen, onClose, onProjectSwitched }) {
-  if (!isOpen) return null;
-
+export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
   const [projects, setProjects] = useState(() => getAllProjects());
   const [activeId, setActiveId] = useState(() => getActiveProjectId());
   const [newProjectName, setNewProjectName] = useState('');
