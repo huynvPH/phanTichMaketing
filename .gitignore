@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+crawler/.venv/
+__pycache__/
 
 # Production build
 dist/

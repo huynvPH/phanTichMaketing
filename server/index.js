@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import { YoutubeTranscript } from 'youtube-transcript';
 import { testAIConnection, callAI, fetchProviderModels, getDefaultModels, PROMPT_TEMPLATES } from './aiService.js';
 import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
+import { callCrawler } from './crawlerService.js';
 
 dotenv.config();
 
@@ -281,12 +282,55 @@ app.get('/api/notion/targets', async (req, res) => {
   res.json(result);
 });
 
+// Helper: Phân giải provider/API key/baseUrl dùng chung cho /api/ai/analyze và /api/crawl/:action.
+// Trả về `error` (string) khi thiếu key, không throw — /api/crawl/:action cần gọi tiếp kể cả thiếu key.
+function resolveProviderAuth(req, provider, model) {
+  const cfg = loadConfig();
+  const ck = getClientKeys(req);
+  let activeProvider = provider;
+  if (!activeProvider) {
+    if (model?.startsWith('gemini')) activeProvider = 'gemini';
+    else if (model?.startsWith('gpt-')) activeProvider = 'openai';
+    else if (model?.includes('claude-3') || model?.includes('claude-sonnet')) {
+      if (model?.startsWith('ag/')) activeProvider = '9router';
+      else activeProvider = 'claude';
+    }
+    else if (model === 'local-model') activeProvider = 'local';
+    else activeProvider = cfg.defaultProvider || 'gemini';
+  }
+  let apiKey = req.body.apiKey || '';
+  let targetBaseUrl = req.body.customBaseUrl;
+
+  if (!apiKey) {
+    if (activeProvider === 'openai') apiKey = ck.openaiApiKey || cfg.openaiApiKey;
+    else if (activeProvider === 'claude') apiKey = ck.anthropicApiKey || cfg.anthropicApiKey;
+    else if (activeProvider === 'gemini') apiKey = ck.geminiApiKey || cfg.geminiApiKey;
+    else if (activeProvider === 'openrouter') apiKey = ck.openrouterApiKey || cfg.openrouterApiKey;
+    else if (activeProvider === '9router') {
+      apiKey = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
+      targetBaseUrl = targetBaseUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+    }
+    else if (activeProvider === 'local') {
+      apiKey = 'local';
+      targetBaseUrl = targetBaseUrl || ck.localBaseUrl || cfg.localBaseUrl;
+    }
+  }
+
+  return {
+    provider: activeProvider,
+    apiKey,
+    baseUrl: targetBaseUrl,
+    error: activeProvider !== 'local' && !apiKey
+      ? `Bạn chưa thiết lập API Key cho ${activeProvider.toUpperCase()}. Hãy bấm vào Cài đặt để thêm key.`
+      : undefined,
+  };
+}
+
 // 5. API: Thực hiện phân tích AI theo quy trình
 app.post('/api/ai/analyze', async (req, res) => {
   try {
     const {
       moduleType, // 'voc' | 'search' | 'competitor' | 'offer' | 'framing'
-      provider,   // '9router' | 'claude' | 'openai' | 'gemini' | 'openrouter' | 'local'
       model,
       rawData,    // Dữ liệu người dùng paste (comment, review, text)
       metadata,   // { industry, targetCustomer, currentProduct, etc. }
@@ -294,42 +338,8 @@ app.post('/api/ai/analyze', async (req, res) => {
     } = req.body;
 
     const cfg = loadConfig();
-    const ck = getClientKeys(req);
-    let activeProvider = provider;
-    if (!activeProvider) {
-      if (model?.startsWith('gemini')) activeProvider = 'gemini';
-      else if (model?.startsWith('gpt-')) activeProvider = 'openai';
-      else if (model?.includes('claude-3') || model?.includes('claude-sonnet')) {
-        if (model?.startsWith('ag/')) activeProvider = '9router';
-        else activeProvider = 'claude';
-      }
-      else if (model === 'local-model') activeProvider = 'local';
-      else activeProvider = cfg.defaultProvider || 'gemini';
-    }
-    let apiKey = req.body.apiKey || '';
-    let targetBaseUrl = req.body.customBaseUrl;
-
-    if (!apiKey) {
-      if (activeProvider === 'openai') apiKey = ck.openaiApiKey || cfg.openaiApiKey;
-      else if (activeProvider === 'claude') apiKey = ck.anthropicApiKey || cfg.anthropicApiKey;
-      else if (activeProvider === 'gemini') apiKey = ck.geminiApiKey || cfg.geminiApiKey;
-      else if (activeProvider === 'openrouter') apiKey = ck.openrouterApiKey || cfg.openrouterApiKey;
-      else if (activeProvider === '9router') {
-        apiKey = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
-        targetBaseUrl = targetBaseUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
-      }
-      else if (activeProvider === 'local') {
-        apiKey = 'local';
-        targetBaseUrl = targetBaseUrl || ck.localBaseUrl || cfg.localBaseUrl;
-      }
-    }
-
-    if (activeProvider !== 'local' && !apiKey) {
-      return res.status(400).json({
-        success: false,
-        error: `Bạn chưa thiết lập API Key cho ${activeProvider.toUpperCase()}. Hãy bấm vào Cài đặt để thêm key.`,
-      });
-    }
+    const { provider: activeProvider, apiKey, baseUrl: targetBaseUrl, error: authError } = resolveProviderAuth(req, req.body.provider, model);
+    if (authError) return res.status(400).json({ success: false, error: authError });
 
     const template = PROMPT_TEMPLATES[moduleType] || PROMPT_TEMPLATES.voc;
     const systemPrompt = template.systemPrompt;
@@ -409,8 +419,8 @@ app.post('/api/competitor/parse-links', (req, res) => {
           const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
           if (m) id = m[1];
           type = 'shorts';
-        } else if (url.includes('watch?v=')) {
-          const m = url.match(/v=([a-zA-Z0-9_-]+)/);
+        } else if (url.includes('watch?v=') || url.includes('&v=')) {
+          const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
           if (m) id = m[1];
         } else if (url.includes('youtu.be/')) {
           const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
@@ -470,7 +480,7 @@ app.post('/api/competitor/fetch-transcript', async (req, res) => {
       if (url.includes('youtube.com/shorts/')) {
         const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
         if (m) videoId = m[1];
-      } else if (url.includes('watch?v=' || url.includes('&v='))) {
+      } else if (url.includes('watch?v=') || url.includes('&v=')) {
         const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
         if (m) videoId = m[1];
       } else if (url.includes('youtu.be/')) {
@@ -603,6 +613,38 @@ app.post('/api/notion/sync', async (req, res) => {
   } catch (error) {
     console.error('Lỗi khi đồng bộ Notion:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 7. API: Proxy sang crawler nội bộ (crawler/server.py) — search / crawl / comments / research / tạo profile trình duyệt
+const CRAWL_ACTIONS = {
+  search: '/search',
+  crawl: '/crawl',
+  comments: '/comments',
+  research: '/research',
+  'profiles-create': '/profiles/create',
+};
+
+app.post('/api/crawl/:action', async (req, res) => {
+  req.body ??= {}; // Express 5: không có body JSON thì req.body là undefined
+  const crawlerPath = CRAWL_ACTIONS[req.params.action];
+  if (!crawlerPath) {
+    return res.status(404).json({ success: false, error: `Hành động crawl không tồn tại: ${req.params.action}` });
+  }
+
+  try {
+    const cfg = loadConfig();
+    const model = req.body.model || cfg.defaultModel;
+    const auth = resolveProviderAuth(req, req.body.provider, model); // auth.error (thiếu key) không chặn search/crawl/comments
+
+    const llm = auth.apiKey || auth.provider === 'local'
+      ? { provider: auth.provider, model, apiKey: auth.apiKey, baseUrl: auth.baseUrl }
+      : undefined;
+
+    const data = await callCrawler(crawlerPath, { ...req.body, llm });
+    res.json({ success: true, ...data });
+  } catch (error) {
+    res.status(error.status || 502).json({ success: false, error: error.message });
   }
 });
 

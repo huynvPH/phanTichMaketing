@@ -47,6 +47,12 @@ export default function CompetitorVideoView({
 
   const [transcriptNotice, setTranscriptNotice] = useState(null);
 
+  // AI tự tìm & crawl feedback thật (Web/YouTube/Facebook) qua crawler nội bộ
+  const [researchTopic, setResearchTopic] = useState('');
+  const [researchPlatforms, setResearchPlatforms] = useState({ web: true, youtube: true, facebook: false });
+  const [researching, setResearching] = useState(false);
+  const [fbLoginBusy, setFbLoginBusy] = useState(false);
+
   // Tự động đếm số lượng link
   const detectedLinks = linksText
     .split('\n')
@@ -146,6 +152,63 @@ export default function CompetitorVideoView({
       });
     } finally {
       setFetchingTranscript(false);
+    }
+  };
+
+  // AI tự đi tìm link Web/YouTube/Facebook theo chủ đề rồi crawl comment/feedback thật
+  const handleAutoResearch = async () => {
+    if (!researchTopic.trim()) return;
+
+    setResearching(true);
+    setTranscriptNotice(null);
+    try {
+      const platforms = Object.keys(researchPlatforms).filter((p) => researchPlatforms[p]);
+      const res = await fetch('/api/crawl/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: researchTopic, platforms, maxSources: 10, model: currentModel }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Lỗi khi tự động crawl feedback.');
+      }
+
+      setScriptsText((prev) =>
+        prev.trim()
+          ? `${prev}\n\n=== FEEDBACK / COMMENT TỰ ĐỘNG CRAWL ===\n${data.combinedText}`
+          : data.combinedText
+      );
+      setInputMode('scripts');
+      setTranscriptNotice({
+        type: 'success',
+        text: `Đã gom feedback từ ${data.sources.length} nguồn (${data.queries.length} truy vấn). Kiểm tra/chỉnh sửa bên dưới rồi bấm phân tích.`,
+      });
+    } catch (err) {
+      setTranscriptNotice({ type: 'warning', text: err.message });
+    } finally {
+      setResearching(false);
+    }
+  };
+
+  // Mở Chrome 1 lần để người dùng đăng nhập Facebook, lưu lại profile cho các lần crawl sau
+  const handleFacebookLogin = async () => {
+    setFbLoginBusy(true);
+    setTranscriptNotice(null);
+    try {
+      const res = await fetch('/api/crawl/profiles-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'facebook' }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Lỗi khi đăng nhập Facebook.');
+      }
+      setTranscriptNotice({ type: 'success', text: 'Đã lưu đăng nhập Facebook' });
+    } catch (err) {
+      setTranscriptNotice({ type: 'warning', text: err.message });
+    } finally {
+      setFbLoginBusy(false);
     }
   };
 
@@ -341,6 +404,59 @@ export default function CompetitorVideoView({
             </button>
           </div>
         )}
+
+        {/* AI tự tìm & crawl feedback thật (Web/YouTube/Facebook) qua crawler nội bộ */}
+        <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200/70 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <input
+              type="text"
+              value={researchTopic}
+              onChange={(e) => setResearchTopic(e.target.value)}
+              placeholder="Chủ đề cần gom feedback, vd: son môi dưỡng ẩm"
+              className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white"
+            />
+            <div className="flex items-center gap-3 text-xs text-slate-700 shrink-0">
+              {[
+                { id: 'web', label: 'Web' },
+                { id: 'youtube', label: 'YouTube' },
+                { id: 'facebook', label: 'Facebook' },
+              ].map(({ id, label }) => (
+                <label key={id} className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={researchPlatforms[id]}
+                    onChange={(e) => setResearchPlatforms((prev) => ({ ...prev, [id]: e.target.checked }))}
+                    className="cursor-pointer"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAutoResearch}
+              disabled={!researchTopic.trim() || researching}
+              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
+              title="AI tự tìm nguồn và crawl comment/feedback thật theo chủ đề"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${researching ? 'animate-spin' : ''}`} />
+              {researching ? 'Đang crawl…' : 'AI tự crawl feedback'}
+            </button>
+            {researchPlatforms.facebook && (
+              <button
+                type="button"
+                onClick={handleFacebookLogin}
+                disabled={fbLoginBusy}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <Compass className="w-3.5 h-3.5" />
+                {fbLoginBusy ? 'Đang mở Chrome…' : 'Đăng nhập Facebook (1 lần)'}
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Mode 1: Dán links */}
         {inputMode === 'links' && (
