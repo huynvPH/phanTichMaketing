@@ -47,110 +47,62 @@ export function downloadFile(filename, content, mime = 'application/json') {
 
 // Khởi tạo mặc định nếu chưa có
 function initDefaultProjectIfEmpty() {
-  try {
-    const listRaw = localStorage.getItem(STORAGE_KEY_PROJECTS);
-    if (!listRaw) {
-      // Đọc dữ liệu cũ nếu có để không bị mất dữ liệu hiện tại
-      let legacyResearch = null;
-      let legacyStrategy = null;
-      let legacyCalendar = null;
-      let legacyExecForm = null;
-
-      try {
-        const r = localStorage.getItem('marketing_research_context');
-        if (r) legacyResearch = JSON.parse(r);
-        const s = localStorage.getItem('marketing_brand_strategy');
-        if (s) legacyStrategy = JSON.parse(s);
-        const c = localStorage.getItem('marketing_content_calendar');
-        if (c) legacyCalendar = JSON.parse(c);
-        const ef = localStorage.getItem('marketing_executive_form');
-        if (ef) legacyExecForm = JSON.parse(ef);
-      } catch {}
-
-      const defaultProject = {
-        id: 'default',
-        name: 'Dự án Nghiên cứu Chính',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify([defaultProject]));
-      localStorage.setItem(STORAGE_KEY_ACTIVE_ID, 'default');
-
-      const initialData = {
-        researchContext: legacyResearch || EMPTY_PROJECT_DATA,
-        strategyData: legacyStrategy || null,
-        calendarData: legacyCalendar || null,
-        executiveForm: legacyExecForm || null,
-      };
-
-      localStorage.setItem(`${PROJECT_DATA_PREFIX}default`, JSON.stringify(initialData));
-    }
-  } catch (e) {
-    console.error('Lỗi khởi tạo danh sách dự án:', e);
+  if (!readLS(STORAGE_KEY_PROJECTS)) {
+    const defaultProject = {
+      id: 'default',
+      name: 'Dự án Nghiên cứu Chính',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    writeLS(STORAGE_KEY_PROJECTS, [defaultProject]);
+    writeLS(STORAGE_KEY_ACTIVE_ID, 'default');
+    writeLS(`${PROJECT_DATA_PREFIX}default`, {
+      researchContext: readLS('marketing_research_context', EMPTY_PROJECT_DATA),
+      strategyData: readLS('marketing_brand_strategy', null),
+      calendarData: readLS('marketing_content_calendar', null),
+      executiveForm: readLS('marketing_executive_form', null),
+    });
   }
 }
 
 // Lấy danh sách tất cả dự án
 export function getAllProjects() {
   initDefaultProjectIfEmpty();
-  try {
-    const list = localStorage.getItem(STORAGE_KEY_PROJECTS);
-    return list ? JSON.parse(list) : [];
-  } catch {
-    return [];
-  }
+  return readLS(STORAGE_KEY_PROJECTS, []);
 }
 
 // Lấy ID dự án đang hoạt động
 export function getActiveProjectId() {
   initDefaultProjectIfEmpty();
-  try {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || 'default';
-  } catch {
-    return 'default';
-  }
+  return readLS(STORAGE_KEY_ACTIVE_ID, 'default');
 }
 
 // Đổi dự án hoạt động
 export function setActiveProjectId(id) {
-  try {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_ID, id);
-  } catch {}
+  writeLS(STORAGE_KEY_ACTIVE_ID, id);
 }
 
 // Lấy toàn bộ dữ liệu của 1 dự án
 export function getProjectData(projectId) {
   initDefaultProjectIfEmpty();
   const id = projectId || getActiveProjectId();
-  try {
-    const raw = localStorage.getItem(`${PROJECT_DATA_PREFIX}${id}`);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-
-  return {
+  return readLS(`${PROJECT_DATA_PREFIX}${id}`, {
     researchContext: EMPTY_PROJECT_DATA,
     strategyData: null,
     calendarData: null,
     executiveForm: null,
-  };
+  });
 }
 
 // Lưu dữ liệu cho 1 dự án
 export function saveProjectData(projectId, data) {
   const id = projectId || getActiveProjectId();
-  try {
-    localStorage.setItem(`${PROJECT_DATA_PREFIX}${id}`, JSON.stringify(data));
-    
-    // Cập nhật updatedAt trong danh sách
-    const list = getAllProjects();
-    const idx = list.findIndex((p) => p.id === id);
-    if (idx !== -1) {
-      list[idx].updatedAt = new Date().toISOString();
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(list));
-    }
-  } catch (e) {
-    console.error('Lỗi khi lưu dữ liệu dự án:', e);
+  writeLS(`${PROJECT_DATA_PREFIX}${id}`, data);
+  const list = getAllProjects();
+  const target = list.find((p) => p.id === id);
+  if (target) {
+    target.updatedAt = new Date().toISOString();
+    writeLS(STORAGE_KEY_PROJECTS, list);
   }
 }
 
@@ -166,17 +118,14 @@ export function createProject(name, initialData = null) {
   };
 
   list.push(newProject);
-  localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(list));
-  localStorage.setItem(STORAGE_KEY_ACTIVE_ID, newId);
-
-  const emptyData = initialData || {
+  writeLS(STORAGE_KEY_PROJECTS, list);
+  writeLS(STORAGE_KEY_ACTIVE_ID, newId);
+  writeLS(`${PROJECT_DATA_PREFIX}${newId}`, initialData || {
     researchContext: EMPTY_PROJECT_DATA,
     strategyData: null,
     calendarData: null,
     executiveForm: null,
-  };
-
-  localStorage.setItem(`${PROJECT_DATA_PREFIX}${newId}`, JSON.stringify(emptyData));
+  });
   return newProject;
 }
 
@@ -187,7 +136,7 @@ export function renameProject(id, newName) {
   if (target) {
     target.name = newName.trim() || target.name;
     target.updatedAt = new Date().toISOString();
-    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(list));
+    writeLS(STORAGE_KEY_PROJECTS, list);
     return true;
   }
   return false;
@@ -201,16 +150,28 @@ export function deleteProject(id) {
   }
 
   const updatedList = list.filter((p) => p.id !== id);
-  localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(updatedList));
-  localStorage.removeItem(`${PROJECT_DATA_PREFIX}${id}`);
+  writeLS(STORAGE_KEY_PROJECTS, updatedList);
+  try {
+    localStorage.removeItem(`${PROJECT_DATA_PREFIX}${id}`);
+  } catch {}
 
-  // Nếu xóa đúng dự án đang active thì chuyển sang dự án đầu tiên
   const currentActive = getActiveProjectId();
   if (currentActive === id) {
     setActiveProjectId(updatedList[0].id);
     return updatedList[0].id;
   }
   return currentActive;
+}
+
+// Gọi API lấy danh sách Trang/Database Notion được cấp quyền
+export async function fetchNotionTargets() {
+  try {
+    const res = await fetch('/api/notion/targets');
+    const data = await res.json();
+    return data.success && data.targets ? data.targets : [];
+  } catch {
+    return [];
+  }
 }
 
 // Xuất dữ liệu dự án ra file JSON tải về

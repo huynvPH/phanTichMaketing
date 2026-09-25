@@ -33,60 +33,20 @@ export default function DataVerificationCard({ report, defaultOpen = true }) {
     analystNotice = '',
   } = report;
 
-  // Màu sắc theo chất lượng
-  const getQualityBadge = () => {
-    switch (qualityRating?.toLowerCase()) {
-      case 'good':
-      case 'rich':
-      case 'tốt':
-        return {
-          label: 'Dữ liệu Đầu vào Tốt',
-          color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-          dot: 'bg-emerald-500',
-        };
-      case 'fair':
-      case 'trung bình':
-        return {
-          label: 'Dữ liệu Mức Trung Bình',
-          color: 'bg-amber-50 text-amber-700 border-amber-200',
-          dot: 'bg-amber-500',
-        };
-      default:
-        return {
-          label: 'Dữ liệu Còn Sơ Sài',
-          color: 'bg-rose-50 text-rose-700 border-rose-200',
-          dot: 'bg-rose-500',
-        };
-    }
-  };
+  const qKey = qualityRating?.toLowerCase();
+  const qBadge = (qKey === 'good' || qKey === 'rich' || qKey === 'tốt')
+    ? { label: 'Dữ liệu Đầu vào Tốt', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' }
+    : (qKey === 'fair' || qKey === 'trung bình')
+    ? { label: 'Dữ liệu Mức Trung Bình', color: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' }
+    : { label: 'Dữ liệu Còn Sơ Sài', color: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' };
 
-  const getRiskBadge = () => {
-    switch (hallucinationRisk?.toLowerCase()) {
-      case 'low':
-      case 'thấp':
-        return {
-          label: 'Nguy cơ Ảo giác: Thấp',
-          color: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-          icon: ShieldCheck,
-        };
-      case 'medium':
-      case 'trung bình':
-        return {
-          label: 'Nguy cơ Ảo giác: Trung bình',
-          color: 'text-amber-700 bg-amber-50 border-amber-200',
-          icon: AlertTriangle,
-        };
-      default:
-        return {
-          label: 'Nguy cơ Ảo giác: Cao (Cần cẩn trọng)',
-          color: 'text-rose-700 bg-rose-50 border-rose-200',
-          icon: AlertCircle,
-        };
-    }
-  };
+  const rKey = hallucinationRisk?.toLowerCase();
+  const rBadge = (rKey === 'low' || rKey === 'thấp')
+    ? { label: 'Nguy cơ Ảo giác: Thấp', color: 'text-emerald-700 bg-emerald-50 border-emerald-200', icon: ShieldCheck }
+    : (rKey === 'medium' || rKey === 'trung bình')
+    ? { label: 'Nguy cơ Ảo giác: Trung bình', color: 'text-amber-700 bg-amber-50 border-amber-200', icon: AlertTriangle }
+    : { label: 'Nguy cơ Ảo giác: Cao (Cần cẩn trọng)', color: 'text-rose-700 bg-rose-50 border-rose-200', icon: AlertCircle };
 
-  const qBadge = getQualityBadge();
-  const rBadge = getRiskBadge();
   const RiskIcon = rBadge.icon;
 
   return (

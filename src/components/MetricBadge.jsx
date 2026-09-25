@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Sparkles, BarChart2, Info } from 'lucide-react';
 
 /**
@@ -24,8 +24,6 @@ export default function MetricBadge({
   compact = false,
   className = '',
 }) {
-  const [showTooltip, setShowTooltip] = useState(false);
-
   const isEmpirical = type === 'empirical';
 
   const defaultBasis = isEmpirical
@@ -35,11 +33,7 @@ export default function MetricBadge({
   const tooltipText = basis || defaultBasis;
 
   return (
-    <div 
-      className={`relative inline-flex items-center gap-1.5 ${className}`}
-      onMouseEnter={() => setShowTooltip(true)}
-      onMouseLeave={() => setShowTooltip(false)}
-    >
+    <div className={`relative group inline-flex items-center gap-1.5 ${className}`}>
       {/* Giá trị chính (nếu được truyền vào) */}
       {value !== undefined && value !== null && (
         <span className="font-bold text-slate-900 tracking-tight text-xs sm:text-sm">
@@ -73,17 +67,15 @@ export default function MetricBadge({
         )}
       </span>
 
-      {/* Tooltip khi hover */}
-      {showTooltip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 p-2 bg-slate-900 text-slate-100 text-[10px] leading-relaxed rounded-md shadow-lg z-50 pointer-events-none">
-          <div className="flex items-center gap-1 font-semibold text-white mb-0.5">
-            <Info className="w-3 h-3 text-cyan-400 shrink-0" />
-            <span>{isEmpirical ? 'Dữ liệu Thực nghiệm' : 'Định tính từ Mô hình AI'}</span>
-          </div>
-          <p className="text-slate-300">{tooltipText}</p>
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900"></div>
+      {/* Tooltip khi hover (CSS group-hover thuần, không tốn render state) */}
+      <div className="hidden group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-60 p-2 bg-slate-900 text-slate-100 text-[10px] leading-relaxed rounded-md shadow-lg z-50 pointer-events-none">
+        <div className="flex items-center gap-1 font-semibold text-white mb-0.5">
+          <Info className="w-3 h-3 text-cyan-400 shrink-0" />
+          <span>{isEmpirical ? 'Dữ liệu Thực nghiệm' : 'Định tính từ Mô hình AI'}</span>
         </div>
-      )}
+        <p className="text-slate-300">{tooltipText}</p>
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900" />
+      </div>
     </div>
   );
 }
