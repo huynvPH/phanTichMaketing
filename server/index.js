@@ -289,12 +289,13 @@ function resolveProviderAuth(req, provider, model) {
   const ck = getClientKeys(req);
   let activeProvider = provider;
   if (!activeProvider) {
+    // Cùng quy tắc với ModelSelector.handleAddCustomModel.
+    // ponytail: đoán theo tiền tố — model 9Router không có "ag/" sẽ bị coi là OpenRouter; muốn chắc thì frontend gửi kèm provider.
     if (model?.startsWith('gemini')) activeProvider = 'gemini';
-    else if (model?.startsWith('gpt-')) activeProvider = 'openai';
-    else if (model?.includes('claude-3') || model?.includes('claude-sonnet')) {
-      if (model?.startsWith('ag/')) activeProvider = '9router';
-      else activeProvider = 'claude';
-    }
+    else if (/^(gpt-|o1|o3)/.test(model || '')) activeProvider = 'openai';
+    else if (model?.startsWith('claude')) activeProvider = 'claude';
+    else if (model?.startsWith('ag/')) activeProvider = '9router';
+    else if (model?.includes('/')) activeProvider = 'openrouter';
     else if (model === 'local-model') activeProvider = 'local';
     else activeProvider = cfg.defaultProvider || 'gemini';
   }
