@@ -67,6 +67,9 @@ assert server._fb_group_id("https://www.facebook.com/groups/congdongketoankiemto
 assert server._fb_group_id("https://www.facebook.com/groups/123/posts/456") is None
 assert server._fb_group_id("https://www.facebook.com/rsbnetwork") is None
 
+# 1j2) _fb_group_id: a share-link redirect (query/fragment ignored) still resolves to the group slug
+assert server._fb_group_id("https://www.facebook.com/groups/opencode.io.vn/?rdid=abc&share_url=xyz#") == "opencode.io.vn"
+
 # 1k) _brief_from: a free-text instruction gets its own high-priority line
 assert "Yêu cầu của người dùng" in server._brief_from(None, "", "chỉ lấy phàn nàn")
 

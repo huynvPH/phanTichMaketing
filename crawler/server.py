@@ -460,6 +460,7 @@ _COMMENT_SCHEMA = {
 FB_HARVEST_JS = r"""
 const startUrl = location.href;
 const isPost = /\/(posts|permalink|videos|reel)\/|story\.php|story_fbid|\/photo/.test(startUrl);
+const postDialog = () => isPost && Array.from(document.querySelectorAll('[role="dialog"]')).find((d) => d.querySelector('[aria-posinset], [role="article"]'));
 const items = [];
 const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 const normalize = (s) => s.replace(/\s*(Ẩn bớt|See less)\s*$/i, '').replace(/(…|\.\.\.)\s*(Xem thêm|See more)?\s*$/i, '').trim();
@@ -471,6 +472,7 @@ const add = (kind, author, text) => {
   // prefix but not a fixed-length key) - fine for the few hundred items one harvest yields.
   // Upgrade path: bucket by a short prefix if item counts ever grow large.
   for (const e of items) {
+    if (e.text === text && e.author === author) return;
     const minLen = Math.min(text.length, e.text.length);
     if (minLen >= 20 && (e.text.startsWith(text) || text.startsWith(e.text))) {
       if (text.length > e.text.length) e.text = text;
@@ -485,19 +487,27 @@ const expandInline = (root) => {
   root.querySelectorAll('[data-ad-comet-preview="message"] [role="button"], [data-ad-preview="message"] [role="button"], [role="article"] div[dir="auto"] [role="button"]').forEach((b) => {
     if (/^(xem thêm|see more)$/i.test(clean(b.innerText)) && !b.closest('a[href]')) { try { b.click(); } catch (e) {} }
   });
+  // an auto-translated post/comment has NO message container until "see original" is clicked in
+  // place, so its text would otherwise be dropped entirely - click it to restore the real wording.
+  root.querySelectorAll('[aria-posinset] [role="button"], [role="article"] [role="button"]').forEach((b) => {
+    if (/^(xem bản gốc|see original)$/i.test(clean(b.innerText)) && !b.closest('a[href]')) { try { b.click(); } catch (e) {} }
+  });
 };
 const harvest = () => {
-  const root = document.querySelector('[role="main"]') || document.body;
+  const root = postDialog() || document.querySelector('[role="main"]') || document.body;
   expandInline(root);
   root.querySelectorAll('[aria-posinset]').forEach((p) => {
     const msg = p.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
     if (!msg) return;
-    const a = p.querySelector('h2 a, h3 a, h4 a, strong a');
+    // the first h2/h3/h4/strong link inside a group post modal is the GROUP name, not the author -
+    // skip links whose href is the group root (/groups/<id>/) and take the next one (a member profile link).
+    const links = Array.from(p.querySelectorAll('h2 a, h3 a, h4 a, strong a'));
+    const a = links.find((l) => !/\/groups\/[^/]+\/?(\?|#|$)/.test(l.getAttribute('href') || ''));
     add('post', a ? a.innerText : '', msg.innerText);
   });
   root.querySelectorAll('[role="article"][aria-label]').forEach((c) => {
     const label = c.getAttribute('aria-label') || '';
-    const m = label.match(/^(?:Bình luận|Phản hồi|Comment|Reply)[^A-Za-zÀ-ỹ]*?(?:dưới tên|by)\s+(.+?)\s+(?:vào|\d)/i);
+    const m = label.match(/(?:dưới tên|\bby)\s+(.+?)\s+(?:vào|\d)/i) || label.match(/^(.+?)\s+(?:đáp lại|replied to)\s/i);
     const parts = Array.from(c.querySelectorAll('div[dir="auto"]')).filter((d) => !d.closest('a[href]') && !d.querySelector('div[dir="auto"]'));
     const text = parts.map((d) => d.innerText).join(' ');
     add('comment', m ? m[1] : '', text);
@@ -505,14 +515,25 @@ const harvest = () => {
   if (isPost) {
     // on a single post we may open more comments: those buttons stay on the same URL
     root.querySelectorAll('[role="button"]').forEach((b) => {
-      if (/(xem thêm bình luận|xem tất cả|view more comments|more replies|phản hồi)/i.test(clean(b.innerText)) && !b.closest('a[href]')) { try { b.click(); } catch (e) {} }
+      if (/(xem thêm bình luận|xem tất cả|view more comments|more replies|phản hồi|câu trả lời)/i.test(clean(b.innerText)) && !b.closest('a[href]')) { try { b.click(); } catch (e) {} }
     });
   }
 };
 for (let i = 0; i < 25; i++) {
   if (location.href !== startUrl) break;
   harvest();
-  window.scrollBy(0, Math.round(window.innerHeight * 0.8));
+  // a post permalink opens as a modal dialog - window scroll doesn't move it, so scroll the
+  // dialog's own scroll container to the bottom (scrollIntoView on the last comment doesn't reach
+  // the container's true bottom); falls back to scrollIntoView, then to window scroll on the feed.
+  const dlg = postDialog();
+  const scroller = dlg && Array.from(dlg.querySelectorAll('div')).find((d) => d.scrollHeight > d.clientHeight + 50 && /auto|scroll/.test(getComputedStyle(d).overflowY));
+  if (scroller) {
+    scroller.scrollTop = scroller.scrollHeight;
+  } else {
+    const articles = dlg ? dlg.querySelectorAll('[role="article"]') : [];
+    if (articles.length) articles[articles.length - 1].scrollIntoView({ block: 'end' });
+    else window.scrollBy(0, Math.round(window.innerHeight * 0.8));
+  }
   await new Promise((r) => setTimeout(r, 1200));
 }
 if (location.href === startUrl) harvest();
@@ -575,6 +596,16 @@ async def comments(req: CommentsReq):
         llm_config = to_llm_config(req.llm) if req.focused and req.llm is not None else None
         brief = _brief_from(req.context, "", req.instruction) if llm_config else ""
 
+        # facebook.com/share/g/<code>/ (the app's Share button) only redirects inside a real browser
+        # (plain HTTP -> 400), so resolve it first or the group keyword search below gets skipped.
+        if llm_config and not group_id and urlparse(req.url).path.startswith("/share/"):
+            try:
+                async with crawler_for(req.profile) as c:
+                    r = await c.arun(req.url, config=CrawlerRunConfig(cache_mode=CacheMode.BYPASS, page_timeout=30000))
+                group_id = _fb_group_id(r.redirected_url or "")
+            except Exception:
+                pass
+
         # Focused + group + AI available: ask a few short, natural-language search keywords a group
         # member would actually write, then harvest each keyword's search results page instead of
         # dumping the whole group feed.
@@ -599,7 +630,7 @@ async def comments(req: CommentsReq):
 
         title = None
         harvested: list[dict] = []
-        seen_texts = set()
+        seen = set()  # (author, text) - text alone would collapse different people's identical comments
         targets = [f"https://www.facebook.com/groups/{group_id}/search/?q={quote_plus(kw)}" for kw in keywords] or [req.url]
         cfg = CrawlerRunConfig(
             cache_mode=CacheMode.BYPASS,
@@ -614,8 +645,9 @@ async def comments(req: CommentsReq):
                     title = title or (r.metadata or {}).get("title")
                     for it in _parse_fb_harvest(r.html or ""):
                         text = it.get("text") or ""
-                        if text and text not in seen_texts:
-                            seen_texts.add(text)
+                        key = (it.get("author") or "", text)
+                        if text and key not in seen:
+                            seen.add(key)
                             harvested.append(it)
         except Exception:
             raise HTTPException(502, "Không crawl được trang, thử lại sau.")
@@ -632,6 +664,7 @@ async def comments(req: CommentsReq):
         ][: req.max]
         total = len(out)
         out, warning = await _focus(req, out)
+        warning = warning or ("Không lấy được bài/comment nào — kiểm tra đăng nhập Facebook hoặc link" if total == 0 else None)
         return {"comments": out, "title": title, "total": total, "warning": warning}
 
     if req.llm is None:
