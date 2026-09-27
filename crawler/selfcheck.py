@@ -71,6 +71,18 @@ assert server._fb_group_id("https://www.facebook.com/rsbnetwork") is None
 assert "Yêu cầu của người dùng" in server._brief_from(None, "", "chỉ lấy phàn nàn")
 
 
+# 1l) _ask_json: a ```json-fenced reply (9Router ignores json_response) still parses
+async def _fenced_reply(**_):
+    msg = type("M", (), {"content": '```json\n{\n  "keep": [2, 11]\n}\n```'})
+    return type("R", (), {"choices": [type("C", (), {"message": msg})]})
+
+
+_real_completion = server.aperform_completion_with_backoff
+server.aperform_completion_with_backoff = _fenced_reply
+assert asyncio.run(server._ask_json(server.LLMConfig(provider="openai/x", api_token="k"), "p")) == {"keep": [2, 11]}
+server.aperform_completion_with_backoff = _real_completion
+
+
 RAW_HTML = (
     "raw:<html><body><h1>Review</h1>"
     '<div class="c"><b>An</b>: Sản phẩm dùng rất tốt, thấm nhanh không bết dính da.</div>'

@@ -203,7 +203,11 @@ async def _ask_json(llm_config: LLMConfig, prompt: str) -> dict:
                 base_delay=10,  # Gemini free tier (5 req/min) asks for ~28s; 10+20+40s covers that window
                 max_attempts=4,
             )
-            return json.loads(resp.choices[0].message.content)
+            # OpenAI-compatible gateways (9Router...) ignore json_response, so the model may wrap the
+            # JSON in ```json fences or add prose - parse the outermost {...} instead of the raw text.
+            content = resp.choices[0].message.content or ""
+            m = re.search(r"\{.*\}", content, re.S)
+            return json.loads(m.group(0) if m else content)
         except Exception as e:
             if attempt == 2 or type(e).__name__ not in ("ServiceUnavailableError", "InternalServerError"):
                 raise
