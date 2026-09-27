@@ -9,8 +9,11 @@ export async function callCrawler(path, body) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  } catch {
-    throw new Error('Crawler chưa chạy — hãy chạy `npm run dev:crawler` (hoặc `npm run dev`)');
+  } catch (err) {
+    if (err.cause?.code === 'ECONNREFUSED') {
+      throw new Error('Crawler chưa chạy — hãy chạy `npm run dev:crawler` (hoặc `npm run dev`)');
+    }
+    throw new Error(`Crawler phản hồi quá lâu hoặc mất kết nối (${err.cause?.code || err.message})`);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

@@ -14,6 +14,7 @@ import os
 import re
 import sys
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Literal
 
 import lxml.html
@@ -190,28 +191,35 @@ def _brief_from(context: ResearchContext | None, topic: str = "", instruction: s
     return "\n".join(f"{label}: {value.strip()}" for label, value in pairs if value.strip())
 
 
+# 240s < Node fetch's 300s headersTimeout (server/crawlerService.js) - a request must answer
+# (possibly degraded) before the Express proxy gives up and drops the connection.
+_AI_CALL_BUDGET = 60  # seconds - hard cap on a single AI call so its own retry/backoff loop can't eat the whole request budget
+_REQUEST_BUDGET = 240  # seconds - total time a /comments or /research request may spend before responding
+
+
 async def _ask_json(llm_config: LLMConfig, prompt: str) -> dict:
     # The backoff helper only retries 429; also retry transient 503/500 ("model overloaded").
-    for attempt in range(3):
-        try:
-            resp = await aperform_completion_with_backoff(
-                provider=llm_config.provider,
-                prompt_with_variables=prompt,
-                api_token=llm_config.api_token,
-                base_url=llm_config.base_url,
-                json_response=True,
-                base_delay=10,  # Gemini free tier (5 req/min) asks for ~28s; 10+20+40s covers that window
-                max_attempts=4,
-            )
-            # OpenAI-compatible gateways (9Router...) ignore json_response, so the model may wrap the
-            # JSON in ```json fences or add prose - parse the outermost {...} instead of the raw text.
-            content = resp.choices[0].message.content or ""
-            m = re.search(r"\{.*\}", content, re.S)
-            return json.loads(m.group(0) if m else content)
-        except Exception as e:
-            if attempt == 2 or type(e).__name__ not in ("ServiceUnavailableError", "InternalServerError"):
-                raise
-            await asyncio.sleep(8 * (attempt + 1))
+    async with asyncio.timeout(_AI_CALL_BUDGET):
+        for attempt in range(3):
+            try:
+                resp = await aperform_completion_with_backoff(
+                    provider=llm_config.provider,
+                    prompt_with_variables=prompt,
+                    api_token=llm_config.api_token,
+                    base_url=llm_config.base_url,
+                    json_response=True,
+                    base_delay=10,  # Gemini free tier (5 req/min) asks for ~28s; 10+20+40s covers that window
+                    max_attempts=4,
+                )
+                # OpenAI-compatible gateways (9Router...) ignore json_response, so the model may wrap the
+                # JSON in ```json fences or add prose - parse the outermost {...} instead of the raw text.
+                content = resp.choices[0].message.content or ""
+                m = re.search(r"\{.*\}", content, re.S)
+                return json.loads(m.group(0) if m else content)
+            except Exception as e:
+                if attempt == 2 or type(e).__name__ not in ("ServiceUnavailableError", "InternalServerError"):
+                    raise
+                await asyncio.sleep(8 * (attempt + 1))
 
 
 _MD_PREFIX_RE = re.compile(r"^[\s\-*+#>]+")
@@ -244,10 +252,13 @@ def _batch_items(texts: list[str], budget: int) -> list[list[int]]:
     return batches
 
 
-async def _select_relevant(llm_config: LLMConfig, brief: str, texts: list[str]) -> tuple[set[int], str | None]:
+async def _select_relevant(
+    llm_config: LLMConfig, brief: str, texts: list[str], deadline: float | None = None
+) -> tuple[set[int], str | None]:
     """Batched AI relevance filter shared by /research and focused /comments: given a brief and a flat
     list of item texts, ask which global indices are real, on-topic user voice. Returns kept indices
-    plus a warning message when any batch failed (rate-limited/overloaded model)."""
+    plus a warning message when any batch failed (rate-limited/overloaded model). A batch whose AI call
+    fails keeps its indices unfiltered rather than dropping them - degraded (unfiltered) beats empty."""
     kept_idx: set[int] = set()
     warning: str | None = None
     for batch in _batch_items(texts, 50000):
@@ -263,23 +274,31 @@ async def _select_relevant(llm_config: LLMConfig, brief: str, texts: list[str]) 
             "dùng', CHỈ giữ mục đáp ứng đúng yêu cầu đó. Trả về JSON {\"keep\": [chỉ số]} không giải thích."
         )
         try:
-            parsed = await _ask_json(llm_config, prompt)
+            if deadline is not None:
+                now = asyncio.get_running_loop().time()
+                parsed = await asyncio.wait_for(_ask_json(llm_config, prompt), timeout=max(5, deadline - now))
+            else:
+                parsed = await _ask_json(llm_config, prompt)
             for i in parsed.get("keep") or []:
                 if isinstance(i, (int, str)) and str(i).lstrip("-").isdigit() and int(i) in batch:
                     kept_idx.add(int(i))
         except Exception as e:
             print("AI filter batch failed:", repr(e)[:800], file=sys.stderr)
+            kept_idx.update(batch)
             warning = (
                 "AI hết quota (vd Gemini free 5 lượt/phút) — đợi 1 phút hoặc đổi model"
                 if type(e).__name__ == "RateLimitError"
                 else "AI đang quá tải (503) — thử lại sau vài phút hoặc đổi model"
                 if type(e).__name__ == "ServiceUnavailableError"
+                else "AI phản hồi quá lâu (hết quota hoặc quá tải)"
+                if isinstance(e, TimeoutError)
                 else "AI lọc feedback lỗi"
             )
+            warning += " — đang giữ dữ liệu chưa lọc"
     return kept_idx, warning
 
 
-async def _focus(req: CommentsReq, out: list[dict]) -> tuple[list[dict], str | None]:
+async def _focus(req: CommentsReq, out: list[dict], deadline: float | None = None) -> tuple[list[dict], str | None]:
     """Shared focus step for all 3 /comments branches: run the AI relevance filter when the
     request is focused and AI is configured, else pass items through (with a warning if AI is missing)."""
     if not req.focused:
@@ -287,7 +306,7 @@ async def _focus(req: CommentsReq, out: list[dict]) -> tuple[list[dict], str | N
     if req.llm is None:
         return out, "Chưa cấu hình AI nên không lọc theo mục tiêu"
     brief = _brief_from(req.context, "", req.instruction)
-    kept, warning = await _select_relevant(to_llm_config(req.llm), brief, [c["text"][:400] for c in out])
+    kept, warning = await _select_relevant(to_llm_config(req.llm), brief, [c["text"][:400] for c in out], deadline)
     return [c for i, c in enumerate(out) if i in kept], warning
 
 
@@ -557,8 +576,174 @@ def _parse_fb_harvest(raw_html: str) -> list[dict]:
         return []
 
 
+# --- Facebook's own JSON (SSR + graphql), preferred over the DOM harvest above when it's available ---
+
+_FB_SSR_JSON_RE = re.compile(r'<script[^>]*type="application/json"[^>]*>(.*?)</script>', re.S)
+_FB_IS_POST_RE = re.compile(r"/(posts|permalink|videos|reel)/|story\.php|story_fbid|/photo")
+_FB_TOKEN_RE = re.compile(r"/(?:posts|permalink|videos|reel)/([^/?#]+)|[?&](?:story_fbid|fbid)=([^&#]+)")
+_FB_FOR_LOOP_GUARD_RE = re.compile(r"^\s*for\s*\(;;\);?")
+
+
+def _fb_post_token(url: str) -> str | None:
+    """Post/video id from a permalink URL - same shape _FB_IS_POST_RE (and FB_HARVEST_JS's isPost) match."""
+    m = _FB_TOKEN_RE.search(url or "")
+    return (m.group(1) or m.group(2)) if m else None
+
+
+def _fb_blob_to_json(blob: str) -> list:
+    """One captured blob (an SSR <script type="application/json"> body, or a /api/graphql response
+    body) into its JSON object(s) - a graphql body can hold several objects newline-separated, and
+    is sometimes prefixed with the classic anti-JSON-hijack `for (;;);` guard."""
+    blob = _FB_FOR_LOOP_GUARD_RE.sub("", blob or "", count=1).strip()
+    if not blob:
+        return []
+    try:
+        return [json.loads(blob)]
+    except Exception:
+        pass
+    out = []
+    for line in blob.splitlines():
+        line = line.strip()
+        if line.startswith("{"):
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+    return out
+
+
+def _fb_iso(ts) -> str | None:
+    try:
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    except Exception:
+        return None
+
+
+def _fb_message_text(node, skip_attached: bool = True) -> str:
+    """First nested `message.text` inside a story dict - skips the reposted `attached_story` and any
+    translated copy of the message (Facebook auto-translates for the viewer's language) so the
+    harvested text is the author's original wording. Callers retry with skip_attached=False for a
+    plain share, whose only text is the shared post's."""
+    if isinstance(node, dict):
+        msg = node.get("message")
+        if isinstance(msg, dict) and isinstance(msg.get("text"), str):
+            return msg["text"]
+        for k, v in node.items():
+            if (skip_attached and k == "attached_story") or "translat" in k.lower():
+                continue
+            found = _fb_message_text(v, skip_attached)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for v in node:
+            found = _fb_message_text(v, skip_attached)
+            if found:
+                return found
+    return ""
+
+
+def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict], int | None, bool]:
+    """Walk Facebook's own SSR/graphql JSON (no DOM scraping) for posts + comments. A "story" dict is
+    one with post_id + actors (author = actors[0].name, time = creation_time); a "comment" dict is one
+    with body.text + author + created_time + id (this shape excludes notifications, which have
+    body.text but no author). `target` is the post_id/URL-token of a single post permalink - only that
+    story + comments inside it (or not inside any story) are kept, other stories on the same page
+    (home feed behind the modal) are dropped; target=None (group feed/search) keeps everything."""
+    posts: dict = {}
+    post_order: list = []
+    comments: dict = {}
+    comment_order: list = []
+    comment_story: dict = {}
+    target_found = False
+    target_pid = None
+    expected: int | None = None
+
+    def is_target(node, pid) -> bool:
+        if target is None:
+            return False
+        if pid is not None and str(pid) == str(target):
+            return True
+        url = node.get("url")
+        return isinstance(url, str) and str(target) in url
+
+    def walk(node, story_id):
+        nonlocal target_found, expected, target_pid
+        if isinstance(node, dict):
+            pid, actors = node.get("post_id"), node.get("actors")
+            if pid is not None and isinstance(actors, list) and actors and isinstance(actors[0], dict):
+                story_id = pid
+                if is_target(node, pid):
+                    target_found = True
+                    if target_pid is None:
+                        target_pid = pid
+                if pid not in posts:
+                    posts[pid] = {
+                        "author": actors[0].get("name") or "",
+                        "text": _fb_message_text(node) or _fb_message_text(node, skip_attached=False),
+                        "likes": 0,
+                        "time": _fb_iso(node.get("creation_time")),
+                        "kind": "post",
+                    }
+                    post_order.append(pid)
+
+            body, author = node.get("body"), node.get("author")
+            ctime, cid = node.get("created_time"), node.get("id")
+            if (
+                isinstance(body, dict) and isinstance(body.get("text"), str)
+                and isinstance(author, dict) and isinstance(ctime, int) and cid is not None
+                and cid not in comments
+            ):
+                comments[cid] = {
+                    "author": author.get("name") or "",
+                    "text": body["text"],
+                    "likes": 0,
+                    "time": _fb_iso(ctime),
+                    "kind": "comment",
+                }
+                comment_story[cid] = story_id
+                comment_order.append(cid)
+
+            c = node.get("comments")
+            if target_pid is not None and story_id == target_pid and isinstance(c, dict) and isinstance(c.get("total_count"), int):
+                expected = c["total_count"] if expected is None else max(expected, c["total_count"])
+
+            for v in node.values():
+                walk(v, story_id)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, story_id)
+
+    for blob in blobs:
+        for obj in _fb_blob_to_json(blob):
+            walk(obj, None)
+
+    if target is None:
+        kept_posts = [posts[pid] for pid in post_order]
+        kept_comments = [comments[cid] for cid in comment_order]
+    else:
+        kept_posts = [posts[pid] for pid in post_order if pid == target_pid]
+        kept_comments = [comments[cid] for cid in comment_order if comment_story[cid] in (target_pid, None)]
+
+    return kept_posts + kept_comments, expected, target_found
+
+
+async def _fb_gql_hook(page, context=None, config=None, **_kwargs):
+    """crawl4ai on_page_context_created hook: capture /api/graphql response bodies without
+    config.capture_network_requests (that captures every image/video too and floods crawl4ai with
+    400+ errors). No-op unless the caller set a list on config._fb_gql right before this arun()."""
+    sink = getattr(config, "_fb_gql", None)
+    if isinstance(sink, list):
+        def _on_response(resp):
+            if "/api/graphql" in resp.url:
+                sink.append(asyncio.ensure_future(resp.text()))
+
+        page.on("response", _on_response)
+    return page
+
+
 @app.post("/comments")
 async def comments(req: CommentsReq):
+    deadline = asyncio.get_running_loop().time() + _REQUEST_BUDGET
     if re.search(r"(youtube\.com|youtu\.be)", req.url):
         try:
             info = await asyncio.to_thread(
@@ -588,7 +773,7 @@ async def comments(req: CommentsReq):
             for c in raw_comments[: req.max]
         ]
         total = len(out)
-        out, warning = await _focus(req, out)
+        out, warning = await _focus(req, out, deadline)
         return {"comments": out, "title": (info or {}).get("title"), "total": total, "warning": warning}
 
     if _is_facebook(req.url):
@@ -638,12 +823,42 @@ async def comments(req: CommentsReq):
             delay_before_return_html=1.0,
             js_code=FB_HARVEST_JS,
         )
+        expected_total: int | None = None
+        via_json = False
+        post_mode = False  # a single post permalink (not a group feed/search page) - gates the coverage warning below
+        skipped = 0  # keyword targets dropped because the request was running out of time budget
         try:
             async with crawler_for(req.profile) as c:
-                for target in targets:
+                # capture /api/graphql responses (crawl4ai's capture_network_requests captures every
+                # image/video too and floods it with 400+ errors) - harmless no-op for other crawls,
+                # which never set cfg._fb_gql.
+                c.crawler_strategy.set_hook("on_page_context_created", _fb_gql_hook)
+                for idx, target in enumerate(targets):
+                    if idx > 0 and deadline - asyncio.get_running_loop().time() < 60:
+                        skipped = len(targets) - idx
+                        break
+                    gql_sink: list = []
+                    cfg._fb_gql = gql_sink
                     r = await c.arun(target, config=cfg)
                     title = title or (r.metadata or {}).get("title")
-                    for it in _parse_fb_harvest(r.html or ""):
+
+                    page_url = r.redirected_url or target
+                    is_post = bool(_FB_IS_POST_RE.search(page_url))
+                    post_mode = post_mode or is_post
+                    token = _fb_post_token(page_url) if is_post else None
+                    gql_bodies = [b for b in await asyncio.gather(*gql_sink, return_exceptions=True) if isinstance(b, str)]
+                    blobs = _FB_SSR_JSON_RE.findall(r.html or "") + gql_bodies
+                    json_items, exp, found = await asyncio.to_thread(_fb_items_from_json, blobs, token)
+
+                    if json_items and (not is_post or found):
+                        via_json = True
+                        if exp is not None:
+                            expected_total = exp if expected_total is None else max(expected_total, exp)
+                        target_items = json_items
+                    else:
+                        target_items = _parse_fb_harvest(r.html or "")
+
+                    for it in target_items:
                         text = it.get("text") or ""
                         key = (it.get("author") or "", text)
                         if text and key not in seen:
@@ -657,15 +872,29 @@ async def comments(req: CommentsReq):
                 "author": it.get("author") or "",
                 "text": it.get("text") or "",
                 "likes": 0,
-                "time": None,
+                "time": it.get("time"),
                 "kind": it.get("kind"),
             }
             for it in harvested
         ][: req.max]
         total = len(out)
-        out, warning = await _focus(req, out)
-        warning = warning or ("Không lấy được bài/comment nào — kiểm tra đăng nhập Facebook hoặc link" if total == 0 else None)
-        return {"comments": out, "title": title, "total": total, "warning": warning}
+        n_comments = sum(1 for it in out if it["kind"] == "comment")  # FB's expected count excludes the post itself
+        out, warning = await _focus(req, out, deadline)
+        if warning is None:
+            if total == 0:
+                warning = "Không lấy được bài/comment nào — kiểm tra đăng nhập Facebook hoặc link"
+            elif post_mode and expected_total and n_comments < 0.8 * min(expected_total, req.max):
+                warning = f"Lấy được {n_comments}/{expected_total} bình luận — Facebook ẩn bớt hoặc chưa tải hết"
+            elif skipped:
+                warning = f"Hết thời gian — bỏ qua {skipped} từ khoá tìm kiếm"
+        return {
+            "comments": out,
+            "title": title,
+            "total": total,
+            "warning": warning,
+            "expected": expected_total,
+            "via": "json" if via_json else "dom",
+        }
 
     if req.llm is None:
         raise HTTPException(400, "Cần cấu hình AI để trích comment ngoài YouTube")
@@ -704,7 +933,7 @@ async def comments(req: CommentsReq):
     out = _verbatim(candidates, page_text)[: req.max]
 
     total = len(out)
-    out, warning = await _focus(req, out)
+    out, warning = await _focus(req, out, deadline)
     return {
         "comments": out,
         "title": (r.metadata or {}).get("title"),
@@ -715,6 +944,7 @@ async def comments(req: CommentsReq):
 
 @app.post("/research")
 async def research(req: ResearchReq):
+    deadline = asyncio.get_running_loop().time() + _REQUEST_BUDGET
     if req.llm is None:
         raise HTTPException(400, "Cần cấu hình AI (llm) để tự nghiên cứu chủ đề này.")
     llm_config = to_llm_config(req.llm)
@@ -779,6 +1009,12 @@ async def research(req: ResearchReq):
 
     async def _fill(source: dict):
         async with sem:
+            now = asyncio.get_running_loop().time()
+            left = deadline - now - 30  # leave 30s for the batched _select_relevant pass after gather()
+            if left < 15:
+                source["error"] = "Hết thời gian — bỏ qua nguồn này"
+                return
+            timeout = min(120, left)
             try:
                 if source["platform"] in ("youtube", "facebook"):
                     r = await asyncio.wait_for(
@@ -790,13 +1026,13 @@ async def research(req: ResearchReq):
                                 llm=req.llm,
                             )
                         ),
-                        timeout=120,
+                        timeout=timeout,
                     )
                     source["comments"] = r["comments"]
                     source["title"] = source.get("title") or r.get("title")
                 else:
                     r = await asyncio.wait_for(
-                        crawl(CrawlReq(urls=[source["url"]], query=bm25_query, filter="bm25")), timeout=120
+                        crawl(CrawlReq(urls=[source["url"]], query=bm25_query, filter="bm25")), timeout=timeout
                     )
                     result = r["results"][0]
                     source["markdown_chunk"] = (result.get("markdown") or "")[:4000]
@@ -824,7 +1060,7 @@ async def research(req: ResearchReq):
         else:
             s["total"] = 0
 
-    kept_idx, warning = await _select_relevant(llm_config, brief, [it["text"] for it in items])
+    kept_idx, warning = await _select_relevant(llm_config, brief, [it["text"] for it in items], deadline=deadline)
 
     kept_payloads: dict[int, list] = {}
     for i, it in enumerate(items):

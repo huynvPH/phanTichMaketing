@@ -144,7 +144,7 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
           .map((c) => `- ${c.author || '?'}${c.kind === 'post' ? ' (bài đăng)' : ''}: ${c.text}${c.likes > 0 ? ` (${c.likes} likes)` : ''}`)
           .join('\n');
         blocks.push(`=== [${platform}] ${title} ===\n${url}\n${body}`);
-        results.push({ url, platform, title, commentCount, total, error: null });
+        results.push({ url, platform, title, commentCount, total, expected: data.expected, error: null });
       } catch (err) {
         results.push({ url, platform, title: url, error: err.message });
       }
@@ -398,6 +398,7 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
                         ? `${s.commentCount}/${s.total} mục`
                         : `${s.commentCount} mục`
                       : `${s.chars || 0} ký tự`}
+                    {s.expected ? ` · FB báo ${s.expected} bình luận` : ''}
                   </span>
                 )}
                 {s.error && <span className="text-rose-600 font-medium shrink-0">{s.error}</span>}
