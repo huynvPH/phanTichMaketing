@@ -1,150 +1,195 @@
+import React, { useState } from 'react';
 import { 
   Compass, 
   Layers, 
   CalendarDays, 
   Database, 
-  ChevronRight,
   Swords,
-  FolderGit2,
-  ChevronDown
+  BookOpen,
+  ExternalLink,
+  Monitor,
+  Sun,
+  Moon,
+  PanelLeftClose,
+  Settings
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
   {
-    title: 'TẦNG 1: CUSTOMER RESEARCH',
-    badge: 'Nghiên Cứu',
-    badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
+    title: 'AGENT',
     tabs: [
       {
         id: 'all_in_one',
         title: 'Nghiên Cứu Khách Hàng',
-        sub: 'Phân tích Insight toàn diện',
         icon: Compass,
       },
       {
         id: 'competitor_videos',
         title: 'Tình Báo Video Đối Thủ',
-        sub: 'Quét link & Bóc tách kịch bản',
         icon: Swords,
       },
     ],
   },
   {
-    title: 'TẦNG 2: STRATEGY',
-    badge: 'Chiến Lược',
-    badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    title: 'STRATEGY',
     tabs: [
       {
         id: 'strategy',
         title: 'Chiến Lược Nội Dung',
-        sub: 'Pillars & Phân bổ kênh',
         icon: Layers,
       },
     ],
   },
   {
-    title: 'TẦNG 3: EXECUTION',
-    badge: 'Kế Hoạch',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    title: 'WORKFLOW',
     tabs: [
       {
         id: 'calendar',
-        title: 'Lịch Nội Dung',
-        sub: 'Đa kênh có truy vết insight',
+        title: 'Lịch Nội Dung Đa Kênh',
         icon: CalendarDays,
       },
     ],
   },
   {
-    title: 'HỆ THỐNG',
-    badge: 'Xuất',
-    badgeColor: 'bg-amber-50 text-amber-800 border-amber-200',
+    title: 'SYSTEM',
     tabs: [
       {
         id: 'notion',
         title: 'Đồng Bộ Notion',
-        sub: 'Lịch sử & Xuất báo cáo',
         icon: Database,
+      },
+      {
+        id: 'settings',
+        title: 'Cài Đặt API',
+        icon: Settings,
       },
     ],
   },
 ];
 
-export default function Sidebar({ activeTab, onSelectTab, activeProjectName, onOpenProjectSelector }) {
+export default function Sidebar({ 
+  activeTab, 
+  onSelectTab
+}) {
+  const [themeMode, setThemeMode] = useState('system'); // 'system' | 'light' | 'dark'
+
   return (
-    <aside className="w-64 h-full bg-white border-r border-slate-200 p-3 flex flex-col justify-between shrink-0 overflow-y-auto sticky top-0 self-stretch">
-      <div className="space-y-3">
-        {/* Project Selector Trigger */}
-        {onOpenProjectSelector && (
-          <div className="pb-2.5 border-b border-slate-100">
-            <button
-              onClick={onOpenProjectSelector}
-              className="w-full h-11 flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-200 text-xs font-medium transition-all shadow-2xs cursor-pointer group"
-              title="Bấm để chuyển đổi hoặc tạo dự án mới"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
-                  <FolderGit2 className="h-3.5 w-3.5" />
-                </div>
-                <div className="text-left min-w-0">
-                  <span className="text-[10px] text-slate-400 block leading-tight font-medium">Dự án</span>
-                  <span className="font-bold text-slate-800 group-hover:text-indigo-700 text-xs truncate block leading-tight max-w-[130px]">
-                    {activeProjectName || 'Dự án Chính'}
-                  </span>
-                </div>
+    <aside className="w-64 h-full bg-white border-r border-zinc-200/80 flex flex-col justify-between shrink-0 select-none sticky top-0 self-stretch z-20">
+      <div className="flex flex-col min-h-0 flex-1">
+        {/* Brand Logo Header */}
+        <div className="h-14 px-5 flex items-center gap-2.5 border-b border-zinc-200/80 shrink-0">
+          <div className="text-emerald-600 flex items-center justify-center">
+            {/* Minimalist Asterisk Logo */}
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" />
+            </svg>
+          </div>
+          <span className="font-semibold text-zinc-950 text-sm tracking-tight">
+            Marketing AI
+          </span>
+        </div>
+
+        {/* Navigation Groups */}
+        <nav className="p-3 space-y-4 overflow-y-auto flex-1">
+          {TAB_GROUPS.map((group, gIdx) => (
+            <div key={gIdx}>
+              <div className="px-3 pb-1">
+                <span className="text-[11px] font-semibold text-zinc-400 tracking-wider uppercase block">
+                  {group.title}
+                </span>
               </div>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-            </button>
-          </div>
-        )}
 
-        <nav className="space-y-4">
-        {TAB_GROUPS.map((group, gIdx) => (
-          <div key={gIdx} className="space-y-1">
-            <div className="px-2 pb-1 flex items-center justify-between gap-2 min-w-0">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
-                {group.title}
-              </span>
-              <span className={`text-[9px] px-2 py-0.5 rounded font-semibold border whitespace-nowrap shrink-0 ${group.badgeColor}`}>
-                {group.badge}
-              </span>
+              <div className="space-y-1">
+                {group.tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.id;
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => onSelectTab(tab.id)}
+                      className={`w-full h-9 text-left px-3 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-3 cursor-pointer ${
+                        isActive
+                          ? 'bg-zinc-950 text-white shadow-xs'
+                          : 'text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 shrink-0 stroke-[1.8] ${isActive ? 'text-white' : 'text-zinc-500'}`} />
+                      <span className="truncate">{tab.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-
-            <div className="space-y-0.5">
-              {group.tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => onSelectTab(tab.id)}
-                    className={`w-full text-left p-2 rounded-lg transition-all flex items-center justify-between group cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-xs ring-1 ring-indigo-500/20'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
-                      <div className="truncate">
-                        <span className="text-xs block truncate leading-tight">{tab.title}</span>
-                        <span className="text-[10px] text-slate-400 block truncate">{tab.sub}</span>
-                      </div>
-                    </div>
-
-                    <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isActive ? 'text-indigo-600' : 'text-slate-400 opacity-0 group-hover:opacity-100'}`} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+          ))}
         </nav>
       </div>
 
-      <div className="p-2 text-center text-[10px] text-slate-400 border-t border-slate-100 pt-3 mt-4">
-        Quy trình 3 Tầng Thực Chiến v1.0
+      {/* Sidebar Footer Dock */}
+      <div className="p-3 border-t border-zinc-100 space-y-2 shrink-0 bg-white">
+        {/* Documentation Link */}
+        <a
+          href="https://github.com/huynvPH/phanTichMaketing#readme"
+          target="_blank"
+          rel="noreferrer"
+          className="w-full h-9 flex items-center justify-between px-3 text-[13px] font-medium text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80 rounded-lg transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <BookOpen className="h-4 w-4 text-zinc-500 stroke-[1.8]" />
+            <span>Tài liệu hướng dẫn</span>
+          </div>
+          <ExternalLink className="h-3.5 w-3.5 text-zinc-400 stroke-[1.8]" />
+        </a>
+
+        {/* User Avatar + Theme Switcher Dock */}
+        <div className="pt-2 border-t border-zinc-100 flex items-center justify-between px-1">
+          {/* User status avatar */}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <div className="h-7 w-7 rounded-full bg-emerald-600 text-white text-[11px] font-semibold flex items-center justify-center">
+                M
+              </div>
+              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-white" />
+            </div>
+          </div>
+
+          {/* Theme Selector Pill */}
+          <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60">
+            <button
+              type="button"
+              onClick={() => setThemeMode('system')}
+              className={`p-1 rounded-md transition-colors ${themeMode === 'system' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
+              title="System"
+            >
+              <Monitor className="h-3.5 w-3.5 stroke-[1.8]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setThemeMode('light')}
+              className={`p-1 rounded-md transition-colors ${themeMode === 'light' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
+              title="Light"
+            >
+              <Sun className="h-3.5 w-3.5 stroke-[1.8]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setThemeMode('dark')}
+              className={`p-1 rounded-md transition-colors ${themeMode === 'dark' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
+              title="Dark"
+            >
+              <Moon className="h-3.5 w-3.5 stroke-[1.8]" />
+            </button>
+          </div>
+
+          {/* Collapse sidebar toggle icon */}
+          <button 
+            type="button"
+            className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+            title="Đóng thanh bên"
+          >
+            <PanelLeftClose className="h-4 w-4 stroke-[1.8]" />
+          </button>
+        </div>
       </div>
     </aside>
   );

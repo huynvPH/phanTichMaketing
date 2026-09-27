@@ -37,7 +37,7 @@ export function mergeDynamicModels(newList) {
   return merged;
 }
 
-export default function ModelSelector({ currentModel, onModelChange }) {
+export default function ModelSelector({ currentModel, onModelChange, direction = 'down', fullWidth = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customModelId, setCustomModelId] = useState('');
@@ -172,33 +172,40 @@ export default function ModelSelector({ currentModel, onModelChange }) {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={`relative ${fullWidth ? 'w-full' : ''}`} ref={dropdownRef}>
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`h-9 flex items-center gap-2 px-3.5 rounded-lg border transition-all shadow-xs text-xs font-medium cursor-pointer ${
+        className={`h-9 flex items-center justify-between gap-2 px-3 rounded-lg border text-[13px] font-medium cursor-pointer transition-colors ${
+          fullWidth ? 'w-full' : ''
+        } ${
           isOpen
-            ? 'bg-indigo-50/60 border-indigo-500 ring-2 ring-indigo-500/10'
-            : 'bg-white hover:bg-slate-50 hover:border-slate-400 border-slate-300 text-slate-800'
+            ? 'bg-zinc-100 border-zinc-400 text-zinc-950'
+            : 'bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800'
         }`}
       >
-        <Cpu className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-        <span className="text-slate-500 text-[11px]">Model:</span>
-        <span className="font-semibold text-slate-900 max-w-[140px] truncate">{selectedModel.name}</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-          {selectedModel.tag}
-        </span>
-        <ChevronDown
-          className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-            isOpen ? 'rotate-180 text-indigo-600' : ''
-          }`}
-        />
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Cpu className="h-4 w-4 text-zinc-500 shrink-0" />
+          <span className="font-medium text-zinc-900 truncate max-w-[130px] text-[13px]">
+            {selectedModel.name}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-zinc-100 text-zinc-700 border border-zinc-200/80 shrink-0">
+            {selectedModel.tag}
+          </span>
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-zinc-400 transition-transform duration-200 shrink-0 ${
+              isOpen ? 'rotate-180 text-zinc-700' : ''
+            }`}
+          />
+        </div>
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-80 rounded-xl bg-white border border-slate-200 shadow-xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
+        <div className={`absolute ${direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} left-0 w-80 rounded-xl bg-white border border-zinc-200 shadow-xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95`}>
           {/* Header & Refresh */}
           <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">

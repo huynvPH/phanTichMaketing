@@ -142,15 +142,15 @@ export default function ContentCalendarView({
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="border-b border-zinc-200/80 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
             Tầng 3: Execution
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-zinc-950 tracking-tight">
             Lịch Nội Dung Đa Kênh
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+          <p className="text-sm text-zinc-500 mt-1 max-w-xl leading-relaxed">
             Chuyển hóa Chiến lược & Insight Khách hàng thành Kịch bản bài đăng chi tiết có truy vết nguồn gốc (Traceable).
           </p>
         </div>
@@ -160,7 +160,7 @@ export default function ContentCalendarView({
             <button
               onClick={handleReset}
               type="button"
-              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 transition font-medium border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+              className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
             >
               Làm mới
             </button>
@@ -170,7 +170,7 @@ export default function ContentCalendarView({
             onClick={handleGenerateCalendar}
             disabled={loading}
             type="button"
-            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="h-9 px-4.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tạo lịch...' : 'Bắt đầu Tạo Lịch'}
@@ -179,11 +179,11 @@ export default function ContentCalendarView({
       </div>
 
       {/* Control Panel: Chọn Kênh & Thời Gian (Tối giản) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-xs">
+      <div className="bg-white border border-zinc-200/80 rounded-xl p-5 space-y-4 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Chọn kênh */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-slate-700">Kênh triển khai:</label>
+            <label className="block text-xs font-medium text-zinc-700">Kênh triển khai:</label>
             <div className="flex flex-wrap gap-1.5">
               {channels.map((ch) => (
                 <button
@@ -192,8 +192,8 @@ export default function ContentCalendarView({
                   onClick={() => setSelectedChannel(ch)}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition cursor-pointer ${
                     selectedChannel === ch
-                      ? 'btn-brand text-white border-transparent'
-                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      ? 'bg-zinc-950 text-white border-zinc-950 shadow-2xs'
+                      : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300'
                   }`}
                 >
                   {ch}
@@ -204,11 +204,11 @@ export default function ContentCalendarView({
 
           {/* Chọn thời gian */}
           <div className="space-y-1.5 shrink-0">
-            <label className="block text-xs font-medium text-slate-700">Khung thời gian:</label>
+            <label className="block text-xs font-medium text-zinc-700">Khung thời gian:</label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-900 bg-white focus:outline-none focus:border-slate-400"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-zinc-200 text-zinc-900 bg-white focus:outline-none focus:border-zinc-400"
             >
               <option value="7 ngày (Weekly Sprint)">7 ngày (Weekly Sprint)</option>
               <option value="14 ngày (Bi-weekly)">14 ngày (Bi-weekly)</option>
@@ -217,8 +217,32 @@ export default function ContentCalendarView({
           </div>
         </div>
 
-        <div className="pt-2 border-t border-slate-100 text-xs text-slate-500">
-          Mỗi bài đăng sẽ tự động truy vết về đúng 1 Trụ cột (Pillar) và 1 Trích dẫn VoC thực tế.
+        {/* Bottom Actions */}
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
+          <span className="text-xs text-zinc-400 hidden sm:inline">
+            * Mỗi bài đăng sẽ tự động liên kết về đúng Trụ cột và insight VoC tương ứng.
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {calendar && (
+              <button
+                onClick={handleReset}
+                type="button"
+                className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
+              >
+                Làm mới
+              </button>
+            )}
+
+            <button
+              onClick={handleGenerateCalendar}
+              disabled={loading}
+              type="button"
+              className="h-9 px-5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Đang tạo lịch...' : 'Bắt đầu Tạo Lịch'}
+            </button>
+          </div>
         </div>
       </div>
 

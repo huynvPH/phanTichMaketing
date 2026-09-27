@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { Sparkles, Compass, AlertTriangle, Link as LinkIcon, FileText } from 'lucide-react';
 
 const MODES = [
-  { id: 'research', icon: Sparkles, label: 'AI tự tìm' },
-  { id: 'linkComments', icon: LinkIcon, label: 'Link → Comment' },
-  { id: 'linkContent', icon: FileText, label: 'Link → Nội dung' },
+  { id: 'research', icon: Sparkles, label: 'Tự động tìm kiếm' },
+  { id: 'linkComments', icon: LinkIcon, label: 'Từ Link MXH (Comment)' },
+  { id: 'linkContent', icon: FileText, label: 'Từ Link bài viết (Nội dung)' },
 ];
 
 const PLATFORM_BADGE = {
   youtube: 'bg-red-50 text-red-700 border-red-200',
   facebook: 'bg-blue-50 text-blue-700 border-blue-200',
-  web: 'bg-slate-100 text-slate-600 border-slate-200',
+  web: 'bg-zinc-100 text-zinc-600 border-zinc-200',
 };
 
 function detectPlatform(url) {
@@ -227,31 +227,41 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
   const handleRun = mode === 'research' ? handleResearch : mode === 'linkComments' ? handleLinkComments : handleLinkContent;
   const runDisabled = busy || (mode === 'research' ? !topic.trim() && !hasContext : urls.length === 0);
   const runLabel = busy
-    ? 'Đang crawl…'
+    ? 'Đang crawl dữ liệu…'
     : mode === 'research'
-    ? 'AI tự crawl feedback'
+    ? 'Bắt đầu Tìm & Crawl'
     : mode === 'linkComments'
-    ? 'Crawl Comment'
-    : 'Crawl Nội Dung';
+    ? 'Bắt đầu Crawl Comment'
+    : 'Bắt đầu Crawl Nội Dung';
 
   return (
-    <div className="p-4 rounded-xl bg-indigo-50/60 border border-indigo-200/70 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-          AI Crawl Feedback thật
-        </span>
-        <div className="flex items-center gap-1.5">
+    <div className="p-4 rounded-xl bg-zinc-50 border border-zinc-200/80 space-y-4">
+      {/* 1. Header & Segmented Tab Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200/70">
+        <div>
+          <span className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-zinc-700" />
+            Công cụ AI tự động thu thập Feedback (VoC)
+          </span>
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            Chọn phương thức để AI quét và tổng hợp phản hồi khách hàng đưa vào ô VoC bên dưới
+          </p>
+        </div>
+
+        {/* Segmented Mode Selector Tabs */}
+        <div className="inline-flex p-1 bg-zinc-200/70 rounded-lg text-xs gap-1 shrink-0 self-start sm:self-center">
           {MODES.map(({ id, icon: Icon, label }) => (
             <button
               key={id}
               type="button"
               onClick={() => setMode(id)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition cursor-pointer flex items-center gap-1 ${
-                mode === id ? 'btn-brand text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              className={`px-3 py-1 rounded-md text-xs font-medium transition cursor-pointer flex items-center gap-1.5 ${
+                mode === id
+                  ? 'bg-white text-zinc-950 shadow-2xs font-semibold'
+                  : 'text-zinc-600 hover:text-zinc-950'
               }`}
             >
-              <Icon className="w-3 h-3" />
+              <Icon className="w-3.5 h-3.5" />
               {label}
             </button>
           ))}
@@ -276,8 +286,9 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
         </div>
       )}
 
+      {/* 2. Inputs depending on mode */}
       {mode === 'research' && (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <input
               type="text"
@@ -285,12 +296,12 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
               onChange={(e) => setTopic(e.target.value)}
               placeholder={
                 hasContext
-                  ? '(Tuỳ chọn) bổ sung chủ đề — AI đã dùng thông tin mục 1'
-                  : 'Chủ đề cần gom feedback, vd: son môi dưỡng ẩm'
+                  ? '(Tuỳ chọn) bổ sung chủ đề cụ thể — AI đã tự nhận diện từ mục 1'
+                  : 'Nhập chủ đề cần tìm feedback, ví dụ: kem trị mụn, son dưỡng ẩm...'
               }
-              className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white"
+              className="flex-1 px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:border-zinc-400 focus:outline-none text-zinc-900 bg-white"
             />
-            <div className="flex items-center gap-3 text-xs text-slate-700 shrink-0">
+            <div className="flex items-center gap-3 text-xs text-zinc-700 shrink-0">
               {[
                 { id: 'web', label: 'Web' },
                 { id: 'youtube', label: 'YouTube' },
@@ -309,70 +320,79 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
             </div>
           </div>
           {hasContext && (
-            <div className="text-[11px] text-slate-500 truncate">AI tìm & lọc feedback theo: {contextSummary}</div>
+            <div className="text-[11px] text-zinc-500 truncate">
+              Ngữ cảnh đã nhận diện: <span className="text-zinc-700 font-medium">{contextSummary}</span>
+            </div>
           )}
         </div>
       )}
 
       {(mode === 'linkComments' || mode === 'linkContent') && (
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <textarea
             rows={4}
             value={urlsText}
             onChange={(e) => setUrlsText(e.target.value)}
             placeholder={
               mode === 'linkComments'
-                ? 'https://www.facebook.com/groups/...\nhttps://www.youtube.com/watch?v=...\n(mỗi dòng 1 link, tối đa 10 link)\nThêm 1 dòng mô tả cần lấy gì, vd: chỉ lấy phàn nàn về phần mềm kế toán, hoá đơn điện tử'
-                : 'https://www.youtube.com/watch?v=...\nhttps://www.facebook.com/...\n(mỗi dòng 1 link, tối đa 10 link)'
+                ? 'https://www.facebook.com/groups/...\nhttps://www.youtube.com/watch?v=...\n(Mỗi dòng 1 link, tối đa 10 link)\nThêm 1 dòng mô tả cần lấy gì nếu muốn, vd: chỉ lấy phàn nàn về chất lượng son'
+                : 'https://www.youtube.com/watch?v=...\nhttps://vnexpress.net/...\n(Mỗi dòng 1 link, tối đa 10 link)'
             }
-            className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-mono"
+            className="w-full p-3 text-xs rounded-lg border border-zinc-200 focus:border-zinc-400 focus:outline-none text-zinc-900 bg-white leading-relaxed font-mono"
           />
-          <span className="text-[11px] text-slate-500">
+          <div className="text-[11px] text-zinc-500">
             {mode === 'linkComments' && focused
-              ? `AI chỉ giữ nội dung liên quan tới: ${[instruction, contextSummary].filter(Boolean).join(' · ')}`
+              ? `AI lọc nội dung liên quan tới: ${[instruction, contextSummary].filter(Boolean).join(' · ')}`
               : urls.length > 0
               ? `Đã nhận diện ${urls.length} link hợp lệ`
               : 'Chỉ nhận link http(s), tối đa 10 link'}
-          </span>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleRun}
-          disabled={runDisabled}
-          className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
-          title="AI tự tìm nguồn và crawl comment/feedback thật"
-        >
-          <Sparkles className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
-          {runLabel}
-        </button>
-        <button
-          type="button"
-          onClick={handleFacebookLogin}
-          disabled={fbLoginBusy}
-          className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-xs"
-        >
-          <Compass className="w-3.5 h-3.5" />
-          {fbLoginBusy ? 'Đang mở Chrome…' : 'Đăng nhập Facebook (1 lần)'}
-        </button>
+      {/* 3. Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-zinc-200/70">
+        <span className="text-[11px] text-zinc-400">
+          {mode === 'research'
+            ? 'Hệ thống sẽ quét các nguồn mạng xã hội và web để tổng hợp phản hồi.'
+            : 'Dán danh sách link để AI trích xuất dữ liệu.'}
+        </span>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={handleFacebookLogin}
+            disabled={fbLoginBusy}
+            className="h-8 px-3 rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            {fbLoginBusy ? 'Đang mở Chrome…' : 'Đăng nhập Facebook'}
+          </button>
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={runDisabled}
+            className="h-8 px-4 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer disabled:opacity-50 shadow-2xs"
+          >
+            <Sparkles className={`w-3.5 h-3.5 ${busy ? 'animate-spin' : ''}`} />
+            {runLabel}
+          </button>
+        </div>
       </div>
 
       {sources.length > 0 && (
-        <div className="space-y-1.5 pt-1">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Nguồn đã crawl</span>
+        <div className="space-y-1.5 pt-2 border-t border-zinc-200/70">
+          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Nguồn đã crawl ({sources.length})</span>
           <div className="space-y-1">
             {sources.map((s, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-[11px] p-2 rounded-lg bg-white border border-slate-200">
+              <div key={idx} className="flex items-center gap-2 text-[11px] p-2 rounded-lg bg-white border border-zinc-200">
                 <span className={`px-1.5 py-0.5 rounded border font-semibold uppercase text-[10px] shrink-0 ${PLATFORM_BADGE[s.platform] || PLATFORM_BADGE.web}`}>
                   {s.platform}
                 </span>
-                <a href={s.url} target="_blank" rel="noreferrer" className="flex-1 truncate text-slate-700 hover:text-indigo-700 hover:underline">
+                <a href={s.url} target="_blank" rel="noreferrer" className="flex-1 truncate text-zinc-700 hover:text-zinc-950 hover:underline">
                   {s.title || s.url}
                 </a>
                 {!s.error && (
-                  <span className="text-slate-400 shrink-0">
+                  <span className="text-zinc-400 shrink-0">
                     {s.commentCount > 0
                       ? s.total > s.commentCount
                         ? `${s.commentCount}/${s.total} mục`

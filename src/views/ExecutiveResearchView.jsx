@@ -265,15 +265,15 @@ export default function ExecutiveResearchView({
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Title Header */}
-      <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="border-b border-zinc-200/80 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
             Tầng 1: Customer Research
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-zinc-950 tracking-tight">
             Nghiên Cứu Khách Hàng
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+          <p className="text-sm text-zinc-500 mt-1 max-w-xl leading-relaxed">
             Nhập đề bài và dữ liệu phản hồi thực tế của khách hàng. Hệ thống tự động phân tích toàn diện 5 nhánh và chuyển tiếp sang Chiến lược nội dung.
           </p>
         </div>
@@ -283,7 +283,7 @@ export default function ExecutiveResearchView({
             <button
               onClick={handleResetForm}
               type="button"
-              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 transition font-medium border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+              className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
             >
               Làm mới
             </button>
@@ -293,7 +293,7 @@ export default function ExecutiveResearchView({
             onClick={handleAnalyzeAll}
             disabled={loading}
             type="button"
-            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="h-9 px-4.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang phân tích...' : 'Bắt đầu Phân tích'}
@@ -302,11 +302,11 @@ export default function ExecutiveResearchView({
       </div>
 
       {/* Input Form Section */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-xs">
+      <div className="bg-white border border-zinc-200/80 rounded-xl p-6 space-y-6 shadow-2xs">
         {/* Section 1: Thông tin sản phẩm & thị trường */}
         <div className="space-y-4">
-          <div className="border-b border-slate-100 pb-2">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+          <div className="border-b border-zinc-100 pb-2">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-800">
               1. Thông Tin Sản Phẩm & Mục Tiêu
             </h2>
           </div>
@@ -409,27 +409,6 @@ export default function ExecutiveResearchView({
               placeholder="Dán các câu nói hoặc phản hồi thực tế của khách tại đây... (Mỗi ý một dòng)"
               className="w-full p-3 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white leading-relaxed font-sans"
             />
-            {inputHealth && (
-              <div className={`mt-2 p-2.5 rounded-lg border flex items-center justify-between gap-2.5 text-xs transition-colors ${
-                inputHealth.status === 'low' 
-                  ? 'bg-rose-50/70 border-rose-200 text-rose-800' 
-                  : inputHealth.status === 'medium' 
-                  ? 'bg-amber-50/70 border-amber-200 text-amber-800' 
-                  : 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${
-                    inputHealth.status === 'low' ? 'text-rose-600' : inputHealth.status === 'medium' ? 'text-amber-600' : 'text-emerald-600'
-                  }`} />
-                  <span className="text-[11px]">
-                    <strong>Độ vững bằng chứng:</strong> {inputHealth.text}
-                  </span>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/80 border border-current shrink-0">
-                  {inputHealth.status === 'low' ? 'Sơ sài' : inputHealth.status === 'medium' ? 'Khá' : 'Tốt'}
-                </span>
-              </div>
-            )}
           </div>
         </div>
 
@@ -451,24 +430,6 @@ export default function ExecutiveResearchView({
             )}
           </div>
 
-          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Swords className="h-4 w-4 text-slate-700 shrink-0" />
-              <span>
-                Phần <strong>Phân Tích Đối Thủ & Quét Video</strong> đã được tách riêng chuyên sâu: Bạn có thể dán link video, bóc tách transcript và AI viết kịch bản phản đòn ngay tại tab <strong>Tình Báo Video Đối Thủ</strong>.
-              </span>
-            </div>
-            {onNavigateToCompetitor && (
-              <button
-                type="button"
-                onClick={onNavigateToCompetitor}
-                className="px-2.5 py-1 bg-white border border-slate-300 rounded text-[11px] font-semibold text-slate-800 hover:bg-slate-100 shrink-0 cursor-pointer"
-              >
-                Chuyển tab
-              </button>
-            )}
-          </div>
-
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1.5">
               Ưu đãi, chính sách bảo hành, cam kết hoặc quà tặng dự kiến của bạn:
@@ -483,6 +444,33 @@ export default function ExecutiveResearchView({
           </div>
         </div>
 
+        {/* Bottom Form Actions */}
+        <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
+          <span className="text-xs text-zinc-400 hidden sm:inline">
+            * Dữ liệu phản hồi VoC càng chi tiết, kết quả phân tích càng chính xác.
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {(formData.productName || formData.customerPainRaw || result) && (
+              <button
+                onClick={handleResetForm}
+                type="button"
+                className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
+              >
+                Làm mới
+              </button>
+            )}
+
+            <button
+              onClick={handleAnalyzeAll}
+              disabled={loading}
+              type="button"
+              className="h-9 px-5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Đang phân tích...' : 'Bắt đầu Phân tích'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Loading state indicator with dynamic progress steps */}

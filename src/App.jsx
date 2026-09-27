@@ -9,6 +9,7 @@ import CompetitorVideoView from './views/CompetitorVideoView';
 import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
+import SettingsView from './views/SettingsView';
 import {
   getAllProjects,
   getActiveProjectId,
@@ -220,28 +221,34 @@ export default function App() {
     setIsNotionSyncOpen(true);
   };
 
+  const TAB_TITLES = {
+    all_in_one: 'Nghiên Cứu Khách Hàng',
+    competitor_videos: 'Tình Báo Video Đối Thủ',
+    strategy: 'Chiến Lược Nội Dung',
+    calendar: 'Lịch Nội Dung Đa Kênh',
+    notion: 'Đồng Bộ Notion',
+    settings: 'Cài Đặt API',
+  };
+
   return (
-    <div className="h-screen bg-slate-50 text-slate-900 flex flex-col antialiased overflow-hidden">
-      {/* Top Header */}
-      <Header
-        config={config}
-        currentModel={currentModel}
-        onModelChange={handleModelChange}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+    <div className="h-screen bg-white text-zinc-900 flex antialiased overflow-hidden font-sans">
+      {/* Left Sidebar - Spans full height from top */}
+      <Sidebar 
+        activeTab={activeTab} 
+        onSelectTab={setActiveTab} 
       />
 
-      {/* Main Layout */}
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left Sidebar */}
-        <Sidebar 
-          activeTab={activeTab} 
-          onSelectTab={setActiveTab} 
+      {/* Right Column: Topbar Breadcrumb + Main View */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#fafafa]">
+        {/* Top Header Breadcrumb Bar - Aligned with Sidebar logo on the same row */}
+        <Header
           activeProjectName={activeProjectName}
           onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
+          activeTabTitle={TAB_TITLES[activeTab] || 'Nghiên Cứu'}
         />
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0 bg-[#fafafa]">
           {activeTab === 'all_in_one' && (
             <ExecutiveResearchView
               currentModel={currentModel}
@@ -283,7 +290,14 @@ export default function App() {
             />
           )}
           {activeTab === 'notion' && (
-            <NotionView config={config} onOpenSettings={() => setIsSettingsOpen(true)} />
+            <NotionView config={config} onOpenSettings={() => setActiveTab('settings')} />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsView
+              currentModel={currentModel}
+              onModelChange={handleModelChange}
+              onConfigUpdated={fetchConfig}
+            />
           )}
         </main>
       </div>
@@ -302,6 +316,8 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onConfigUpdated={fetchConfig}
+        currentModel={currentModel}
+        onModelChange={handleModelChange}
       />
 
       <NotionSyncModal

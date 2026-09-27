@@ -1,38 +1,41 @@
 import React from 'react';
-import { Sparkles, Settings } from 'lucide-react';
-import ModelSelector from './ModelSelector';
+import { ChevronDown } from 'lucide-react';
 
-export default function Header({ currentModel, onModelChange, onOpenSettings }) {
+export default function Header({ 
+  activeProjectName,
+  onOpenProjectSelector,
+  activeTabTitle
+}) {
+  const initial = (activeProjectName || 'Marketing Hub').trim().charAt(0).toUpperCase();
+
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between px-6 py-2.5 bg-white border-b border-slate-200 shadow-xs">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2.5 cursor-default select-none group">
-          <div className="relative h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 ring-1 ring-black/5 transition-all duration-200 group-hover:scale-105 group-hover:shadow-indigo-500/35">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/10 to-white/25 pointer-events-none" />
-            <Sparkles className="h-4.5 w-4.5 text-white drop-shadow-xs" />
-          </div>
-          <h1 className="text-[15px] font-extrabold text-slate-900 tracking-tight flex items-center gap-1">
-            <span>Marketing</span>
-            <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-black">AI</span>
-            <span className="text-slate-800 font-bold">Hub</span>
-          </h1>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2.5">
-
-        {/* Custom Modern Model Combobox */}
-        <ModelSelector currentModel={currentModel} onModelChange={onModelChange} />
-
-        {/* Settings Button */}
+    <header className="h-14 px-6 bg-white border-b border-zinc-200/80 flex items-center justify-between shrink-0 sticky top-0 z-30">
+      {/* Left: Breadcrumb / Workspace Selector */}
+      <div className="flex items-center gap-2.5 text-[13px]">
+        {/* Workspace Pill Trigger */}
         <button
-          onClick={onOpenSettings}
-          className="h-9 flex items-center gap-2 px-3.5 rounded-lg bg-white hover:bg-slate-50 hover:border-slate-400 text-slate-800 border border-slate-300 text-xs font-medium transition-all shadow-xs cursor-pointer group"
+          onClick={onOpenProjectSelector}
+          className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-950 font-semibold cursor-pointer group"
+          title="Bấm để chuyển đổi hoặc tạo dự án mới"
         >
-          <Settings className="h-3.5 w-3.5 text-indigo-600 group-hover:rotate-45 transition-transform duration-200 shrink-0" />
-          <span className="font-semibold text-slate-900">Cài đặt API</span>
+          <div className="h-6 w-6 rounded-full bg-zinc-950 text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+            {initial}
+          </div>
+          <span className="truncate max-w-[180px] tracking-tight">{activeProjectName || 'Dự án Nghiên cứu'}</span>
+          <ChevronDown className="h-3.5 w-3.5 text-zinc-400 group-hover:text-zinc-700 transition-colors shrink-0" />
         </button>
+
+        {/* Breadcrumb Separator */}
+        <span className="text-zinc-300 font-light select-none">/</span>
+
+        {/* Current Page Title */}
+        <span className="text-zinc-800 font-medium px-1">
+          {activeTabTitle || 'Nghiên Cứu Khách Hàng'}
+        </span>
       </div>
+
+      {/* Right empty spacer for clean balance */}
+      <div />
     </header>
   );
 }

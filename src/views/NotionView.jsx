@@ -21,12 +21,19 @@ export default function NotionView({ config, onOpenSettings }) {
   }, [config.hasNotion]);
 
   return (
-    <div className="space-y-5 max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+      <div className="border-b border-zinc-200/80 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">Trung Tâm Đồng Bộ Notion</h2>
-          <p className="text-xs text-slate-500">Quản lý các báo cáo nghiên cứu đã xuất sang không gian làm việc Notion</p>
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
+            Hệ thống & Tích hợp
+          </span>
+          <h1 className="text-2xl font-bold text-zinc-950 tracking-tight">
+            Trung Tâm Đồng Bộ Notion
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1 max-w-xl leading-relaxed">
+            Quản lý các báo cáo nghiên cứu đã xuất sang không gian làm việc Notion
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -34,7 +41,7 @@ export default function NotionView({ config, onOpenSettings }) {
             <button
               onClick={fetchTargets}
               disabled={loading}
-              className="p-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 transition"
+              className="h-9 px-3 rounded-lg border border-zinc-200 hover:bg-zinc-50 text-zinc-600 transition cursor-pointer"
               title="Làm mới danh sách"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -42,7 +49,7 @@ export default function NotionView({ config, onOpenSettings }) {
           )}
           <button
             onClick={onOpenSettings}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-xs transition"
+            className="h-9 px-4.5 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold shadow-xs transition cursor-pointer"
           >
             Cài đặt Notion Token
           </button>

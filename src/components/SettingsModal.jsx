@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, CheckCircle, AlertCircle, RefreshCw, Database, Cpu, Server } from 'lucide-react';
-import { mergeDynamicModels } from './ModelSelector';
+import ModelSelector, { mergeDynamicModels } from './ModelSelector';
 import { fetchNotionTargets } from '../utils/notionClient';
 
 const PROVIDER_CARDS = [
@@ -50,7 +50,7 @@ const PROVIDER_CARDS = [
   },
 ];
 
-export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
+export default function SettingsModal({ isOpen, onClose, onConfigUpdated, currentModel, onModelChange }) {
   const [formData, setFormData] = useState({
     openaiApiKey: '',
     anthropicApiKey: '',
@@ -191,6 +191,14 @@ export default function SettingsModal({ isOpen, onClose, onConfigUpdated }) {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4 text-xs">
+          {/* Active AI Model Setting */}
+          {onModelChange && (
+            <div className="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-4">
+              <span className="font-semibold text-zinc-900 text-xs">Mô hình AI đang kích hoạt</span>
+              <ModelSelector currentModel={currentModel} onModelChange={onModelChange} />
+            </div>
+          )}
+
           {PROVIDER_CARDS.map((p) => (
             <div key={p.id} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
               <div className="flex items-center justify-between font-bold text-slate-900">

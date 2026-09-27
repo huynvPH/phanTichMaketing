@@ -105,17 +105,17 @@ export default function ContentStrategyView({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="max-w-5xl mx-auto space-y-8 pb-16">
       {/* Header */}
-      <div className="border-b border-slate-200 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="border-b border-zinc-200/80 pb-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
             Tầng 2: Strategy
           </span>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-zinc-950 tracking-tight">
             Chiến Lược Nội Dung
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl leading-relaxed">
+          <p className="text-sm text-zinc-500 mt-1 max-w-xl leading-relaxed">
             Chuyển hóa Customer Insights thành Trụ Cột Nội Dung (Pillars), Giọng điệu và Định vị Kênh phân bổ.
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function ContentStrategyView({
             <button
               onClick={handleReset}
               type="button"
-              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800 transition font-medium border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer"
+              className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
             >
               Làm mới
             </button>
@@ -135,7 +135,7 @@ export default function ContentStrategyView({
             onClick={handleGenerateStrategy}
             disabled={loading}
             type="button"
-            className="px-4 py-2 btn-brand text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            className="h-9 px-4.5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
           >
             <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Đang tổng hợp...' : 'Bắt đầu Lập Chiến Lược'}
@@ -145,14 +145,14 @@ export default function ContentStrategyView({
 
 
       {/* Form cấu hình định vị thương hiệu (Đơn giản, sạch sẽ) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-xs">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
+      <div className="bg-white border border-zinc-200/80 rounded-xl p-5 space-y-5 shadow-2xs">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-800 border-b border-zinc-100 pb-2">
           Định Vị Thương Hiệu & Giọng Điệu
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+            <label className="block text-xs font-medium text-zinc-700 mb-1.5">
               Định vị Sản phẩm / Thương hiệu
             </label>
             <input
@@ -160,12 +160,12 @@ export default function ContentStrategyView({
               value={formData.brandPositioning}
               onChange={(e) => handleInputChange('brandPositioning', e.target.value)}
               placeholder="Nhập tên sản phẩm hoặc định vị..."
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:border-zinc-400 focus:outline-none text-zinc-900 bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+            <label className="block text-xs font-medium text-zinc-700 mb-1.5">
               Khách hàng mục tiêu
             </label>
             <input
@@ -173,12 +173,12 @@ export default function ContentStrategyView({
               value={formData.targetCustomer}
               onChange={(e) => handleInputChange('targetCustomer', e.target.value)}
               placeholder="Tệp khách hàng trọng tâm..."
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:border-zinc-400 focus:outline-none text-zinc-900 bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1.5">
+            <label className="block text-xs font-medium text-zinc-700 mb-1.5">
               Giọng điệu mong muốn (Tone of Voice)
             </label>
             <input
@@ -186,11 +186,38 @@ export default function ContentStrategyView({
               value={formData.brandTonePreference}
               onChange={(e) => handleInputChange('brandTonePreference', e.target.value)}
               placeholder="Ví dụ: Chân thành, chuyên gia, thực chiến..."
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 bg-white"
+              className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 focus:border-zinc-400 focus:outline-none text-zinc-900 bg-white"
             />
           </div>
         </div>
 
+        {/* Bottom Form Actions */}
+        <div className="pt-3 border-t border-zinc-100 flex items-center justify-between">
+          <span className="text-xs text-zinc-400 hidden sm:inline">
+            * Nhấn để AI liên kết sâu insights VoC từ Tầng 1 vào các Trụ cột nội dung.
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {(formData.brandPositioning || strategy) && (
+              <button
+                onClick={handleReset}
+                type="button"
+                className="h-9 px-3.5 text-xs text-zinc-600 hover:text-zinc-950 transition font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 cursor-pointer"
+              >
+                Làm mới
+              </button>
+            )}
+
+            <button
+              onClick={handleGenerateStrategy}
+              disabled={loading}
+              type="button"
+              className="h-9 px-5 bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-semibold rounded-lg transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
+            >
+              <Sparkles className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Đang tổng hợp...' : 'Bắt đầu Lập Chiến Lược'}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Loading state */}

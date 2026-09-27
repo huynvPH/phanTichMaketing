@@ -1,67 +1,70 @@
 @import "tailwindcss";
 
 :root {
-  font-family: 'Be Vietnam Pro', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
-  --color-brand: oklch(0.511 0.262 276.966);
-  --color-brand-hover: oklch(0.44 0.24 277);
+  letter-spacing: -0.011em;
+  --color-brand: #18181b;
+  --color-brand-hover: #09090b;
 }
 
 .btn-brand,
 button.btn-brand {
-  background-color: oklch(0.511 0.262 276.966) !important;
+  background-color: #18181b !important;
   color: #ffffff !important;
 }
 
 .btn-brand:hover:not(:disabled),
 button.btn-brand:hover:not(:disabled) {
-  background-color: oklch(0.44 0.24 277) !important;
+  background-color: #09090b !important;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #ffffff;
+  color: #09090b;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #e4e4e7;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a1a1aa;
 }
 
-/* Clean Minimalist Cards */
+/* Clean SaaS Cards & Tables */
 .clean-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 .clean-card:hover {
-  border-color: #cbd5e1;
+  border-color: #d4d4d8;
 }
 
 .clean-input {
   background-color: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
+  border: 1px solid #e4e4e7;
+  color: #09090b;
   transition: all 0.15s ease;
 }
 
 .clean-input:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+  border-color: #18181b;
+  box-shadow: 0 0 0 1px #18181b;
   outline: none;
 }
+
