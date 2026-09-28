@@ -562,8 +562,9 @@ app.post('/api/notion/sync', async (req, res) => {
   }
 });
 
-// 7. API: Proxy sang crawler nội bộ (crawler/server.py) — crawl / comments / research / tạo profile trình duyệt
+// 7. API: Proxy sang crawler nội bộ (crawler/server.py) — search / crawl / comments / research / tạo profile trình duyệt
 const CRAWL_ACTIONS = {
+  search: '/search',
   crawl: '/crawl',
   comments: '/comments',
   research: '/research',
