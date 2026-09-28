@@ -11,8 +11,7 @@ import {
   Sun,
   Moon,
   PanelLeftClose,
-  Settings,
-  Sparkles
+  Settings
 } from 'lucide-react';
 
 export const TAB_GROUPS = [
@@ -54,11 +53,6 @@ export const TAB_GROUPS = [
   {
     title: 'HỆ THỐNG',
     tabs: [
-      {
-        id: 'welcome',
-        title: 'Trang Chào Mừng',
-        icon: Sparkles,
-      },
       {
         id: 'notion',
         title: 'Đồng Bộ Notion',
