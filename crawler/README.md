@@ -1,9 +1,13 @@
-# crawler/crawl4ai (vendored)
+---
+title: Marketing AI Crawler
+emoji: 🕷️
+colorFrom: indigo
+colorTo: emerald
+sdk: docker
+app_port: 7860
+---
 
-Source: https://github.com/unclecode/crawl4ai @ 86e6464f (v0.9.4), Apache-2.0 (see LICENSE).
+# Marketing AI Crawler (FastAPI + Crawl4AI + Playwright)
 
-Removed (CLI/UI/dead code): `cli.py`, `cloud/`, `legacy/`, `docker_client.py`, `install.py`,
-`components/` (crawler_monitor), `deep_crawling/crazy.py`, `crawlers/amazon_product/`,
-`html2text/cli.py`, `html2text/__main__.py`, 7 dead helper functions in `utils.py`.
-
-Setup: `uv sync --project crawler` then `uv run --project crawler playwright install chromium`.
+Dịch vụ cào dữ liệu và phân tích tự động chạy trên Hugging Face Spaces.
+Hỗ trợ Web crawling, Search Demand, Social Comment Mining và YouTube Transcripts.

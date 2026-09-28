@@ -1,4 +1,5 @@
 import { Client } from '@notionhq/client';
+import { explainAIError } from './aiService.js';
 
 // Helpers dựng block Notion (rút gọn các literal lặp lại bên dưới)
 const rt = (content, annotations) => ({ type: 'text', text: { content }, ...(annotations && { annotations }) });
@@ -20,7 +21,7 @@ export async function testNotionConnection(token) {
   } catch (error) {
     return {
       success: false,
-      message: error.message || 'Không thể kết nối với Notion API. Kiểm tra lại Internal Integration Token.',
+      message: explainAIError(error, 'notion'),
     };
   }
 }

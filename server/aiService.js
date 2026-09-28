@@ -1,6 +1,73 @@
+import assert from 'node:assert';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// Tên hiển thị tiếng Việt cho từng provider, dùng chung cho thông báo lỗi/thiếu key.
+const PROVIDER_LABELS = {
+  openai: 'OpenAI',
+  claude: 'Claude (Anthropic)',
+  gemini: 'Google Gemini',
+  '9router': '9Router',
+  openrouter: 'OpenRouter',
+  local: 'Local AI',
+  notion: 'Notion',
+};
+
+function labelFor(provider) {
+  return PROVIDER_LABELS[provider] || provider || 'AI';
+}
+
+// Diễn giải lỗi kỹ thuật (SDK/HTTP, thường bằng tiếng Anh) thành thông báo tiếng Việt ngắn gọn,
+// không bao giờ in lại API key (kể cả một phần) của người dùng.
+export function explainAIError(err, provider, { model, baseURL } = {}) {
+  const label = labelFor(provider);
+  const status = err?.status ?? err?.statusCode;
+  const code = err?.code;
+  const causeCode = err?.cause?.code;
+  const message = err?.message || String(err || 'Lỗi không xác định');
+  const errorType = err?.type; // OpenAI/Anthropic APIError gán phẳng từ body.error.type
+  const geminiDetails = Array.isArray(err?.errorDetails) ? err.errorDetails : undefined;
+  const geminiReason = geminiDetails?.find((d) => d?.reason)?.reason;
+
+  const isInvalidKey =
+    status === 401 ||
+    status === 403 ||
+    errorType === 'authentication_error' ||
+    code === 'unauthorized' ||
+    (provider === 'gemini' && (geminiReason === 'API_KEY_INVALID' || /API key not valid/i.test(message))) ||
+    /invalid x-api-key/i.test(message) ||
+    /Incorrect API key/i.test(message);
+  if (isInvalidKey) {
+    return `API key ${label} không hợp lệ, đã bị thu hồi hoặc hết hạn. Vào "Cài Đặt API" để nhập lại key đúng.`;
+  }
+
+  if (status === 429 || code === 'rate_limit_exceeded' || /rate.?limit/i.test(message)) {
+    return `Đã vượt hạn mức (quota) hoặc bị giới hạn tốc độ (rate limit) của ${label}. Vui lòng thử lại sau hoặc kiểm tra gói cước.`;
+  }
+
+  const isModelNotFound =
+    status === 404 ||
+    code === 'model_not_found' ||
+    /model[^.]*not found/i.test(message) ||
+    /does not exist/i.test(message);
+  if (isModelNotFound) {
+    return `Model "${model || '(không xác định)'}" không tồn tại hoặc key không có quyền dùng model này.`;
+  }
+
+  const NETWORK_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT']);
+  const isNetworkError =
+    NETWORK_CODES.has(code) ||
+    NETWORK_CODES.has(causeCode) ||
+    /fetch failed/i.test(message) ||
+    err?.constructor?.name === 'APIConnectionError';
+  if (isNetworkError) {
+    return `Không kết nối được tới ${label}${baseURL ? ` (${baseURL})` : ''}. Kiểm tra mạng hoặc dịch vụ đang chạy.`;
+  }
+
+  const trimmed = message.length > 200 ? `${message.slice(0, 200)}...` : message;
+  return `Lỗi từ ${label}: ${trimmed}`;
+}
 
 const DEFAULT_MODELS = {
   gemini: [
@@ -46,32 +113,45 @@ function filterOpenAIChatModels(data) {
     }));
 }
 
+// Gọi endpoint danh sách model của Gemini và chuẩn hoá kết quả, dùng chung cho fetchProviderModels
+// (nuốt lỗi, trả model mặc định) và testAIConnection (throw để explainAIError diễn giải lỗi thật).
+async function fetchGeminiModels(apiKey) {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body?.error?.message || `Gemini trả lỗi HTTP ${res.status}`);
+    err.status = res.status;
+    if (body?.error?.details) err.errorDetails = body.error.details;
+    throw err;
+  }
+  const data = await res.json();
+  const models = (data.models || [])
+    .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.startsWith('models/gemini'))
+    .filter(m => !m.name.includes('-tts') && !m.name.includes('-image') && !m.name.includes('embedding') && !m.name.includes('transcribe'))
+    .map(m => {
+      const id = m.name.replace('models/', '');
+      return {
+        id,
+        name: m.displayName || id,
+        provider: 'gemini',
+        tag: 'Google Direct',
+        category: 'Google'
+      };
+    });
+  // Sort priority
+  models.sort((a, b) => {
+    if (a.id.includes('3.6') || a.id.includes('flash-latest')) return -1;
+    if (b.id.includes('3.6') || b.id.includes('flash-latest')) return 1;
+    return 0;
+  });
+  return models;
+}
+
 export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
   try {
     if (provider === 'gemini') {
       if (!apiKey) return getDefaultModels('gemini');
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=100`);
-      if (!res.ok) return getDefaultModels('gemini');
-      const data = await res.json();
-      const models = (data.models || [])
-        .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.startsWith('models/gemini'))
-        .filter(m => !m.name.includes('-tts') && !m.name.includes('-image') && !m.name.includes('embedding') && !m.name.includes('transcribe'))
-        .map(m => {
-          const id = m.name.replace('models/', '');
-          return {
-            id,
-            name: m.displayName || id,
-            provider: 'gemini',
-            tag: 'Google Direct',
-            category: 'Google'
-          };
-        });
-      // Sort priority
-      models.sort((a, b) => {
-        if (a.id.includes('3.6') || a.id.includes('flash-latest')) return -1;
-        if (b.id.includes('3.6') || b.id.includes('flash-latest')) return 1;
-        return 0;
-      });
+      const models = await fetchGeminiModels(apiKey);
       return models.length > 0 ? models : getDefaultModels('gemini');
     }
     else if (provider === 'openai') {
@@ -105,6 +185,12 @@ export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
 }
 
 export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
+  if (!apiKey && ['openai', 'claude', 'gemini'].includes(provider)) {
+    return { success: false, message: `Chưa nhập API key ${labelFor(provider)}.` };
+  }
+  // 9Router: key tùy chọn (có thể chạy local không cần key) nên không chặn ở đây.
+  const baseURL = provider === '9router' ? (customBaseUrl || 'http://localhost:20128/v1') : customBaseUrl;
+
   try {
     let modelsList = [];
     if (provider === 'openai') {
@@ -119,54 +205,56 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
       };
     }
     else if (provider === 'claude') {
+      // Dùng models.list() để xác thực key thật (không tốn token, không phụ thuộc 1 model cụ thể
+      // có thể đã bị retire — trước đây gọi messages.create() trên model cố định khiến key ĐÚNG
+      // vẫn bị báo lỗi nếu model đó không còn tồn tại).
       const anthropic = new Anthropic({ apiKey });
-      await anthropic.messages.create({
-        model: model || 'claude-3-5-haiku-20241022',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Ping' }],
-      });
-      modelsList = getDefaultModels('claude');
-      return { 
-        success: true, 
+      const res = await anthropic.models.list();
+      const models = (res.data || []).map(m => ({
+        id: m.id,
+        name: m.display_name || m.id,
+        provider: 'claude',
+        tag: 'Anthropic Direct',
+        category: 'Claude'
+      }));
+      modelsList = models.length > 0 ? models : getDefaultModels('claude');
+      return {
+        success: true,
         message: 'Kết nối Claude (Anthropic) thành công!',
-        models: modelsList 
+        models: modelsList
       };
-    } 
+    }
     else if (provider === 'gemini') {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const candidateModels = [
-        (model === 'gemini-1.5-flash' || model === 'gemini-2.5-flash' || !model) ? 'gemini-3.6-flash' : model,
-        'gemini-flash-latest'
-      ];
-      let lastError;
-      for (const mName of candidateModels) {
-        try {
-          const m = genAI.getGenerativeModel({ model: mName });
-          await m.generateContent('Ping');
-          modelsList = await fetchProviderModels('gemini', apiKey);
-          return { 
-            success: true, 
-            message: `Kết nối Google Gemini (${mName}) thành công! Tìm thấy ${modelsList.length} models khả dụng.`,
-            models: modelsList 
-          };
-        } catch (e) {
-          lastError = e;
-        }
-      }
-      throw lastError;
+      // Dùng endpoint danh sách model để xác thực key thật, không gọi generateContent: key hợp lệ
+      // nhưng hết quota vẫn được xác nhận là hợp lệ, và không tốn quota của người dùng.
+      const models = await fetchGeminiModels(apiKey);
+      modelsList = models.length > 0 ? models : getDefaultModels('gemini');
+      return {
+        success: true,
+        message: `Kết nối Google Gemini thành công! Tìm thấy ${modelsList.length} models khả dụng.`,
+        models: modelsList
+      };
     }
     else if (provider === '9router') {
-      const baseURL = customBaseUrl || 'http://localhost:20128/v1';
+      const url = `${baseURL.replace(/\/$/, '')}/models`;
+      const res = await fetch(url, {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+      });
+      if (!res.ok) {
+        throw Object.assign(new Error(`9Router trả lỗi HTTP ${res.status}`), { status: res.status });
+      }
+      // /models của 9Router có thể mở không cần key → khi đó không xác minh được key, nói rõ thay vì báo "đúng"
+      const keyUnchecked = apiKey && (await fetch(url).then((r) => r.ok, () => false));
       modelsList = await fetchProviderModels('9router', apiKey, baseURL);
-      return { 
-        success: true, 
-        message: `Kết nối 9Router (${baseURL}) thành công! Tìm thấy ${modelsList.length} models.`,
-        models: modelsList 
+      return {
+        success: true,
+        message: `Kết nối 9Router (${baseURL}) thành công! Tìm thấy ${modelsList.length} models.${keyUnchecked ? ' Lưu ý: 9Router không yêu cầu key để kết nối nên chưa xác minh được key ở bước này.' : ''}`,
+        models: modelsList
       };
     }
     throw new Error('Nhà cung cấp không hợp lệ');
   } catch (error) {
-    return { success: false, message: error.message || 'Lỗi không xác định khi kết nối' };
+    return { success: false, message: explainAIError(error, provider, { model, baseURL }) };
   }
 }
 
@@ -665,3 +753,91 @@ Trả về định dạng JSON chuẩn xác sau:
 }`,
   },
 };
+
+// Self-check: `node server/aiService.js --selfcheck` (quy ước giống scripts/free-ports.js).
+// Kiểm tra explainAIError() ánh xạ đúng thông báo tiếng Việt cho từng dạng lỗi, và không bao giờ
+// làm rò rỉ chuỗi API key giả có mặt trong message lỗi gốc.
+function runSelfCheck() {
+  const FAKE_KEY = 'sk-wrong-123nopqr';
+
+  const cases = [
+    {
+      name: 'OpenAI 401 (echo 1 phần key trong message gốc)',
+      provider: 'openai',
+      err: {
+        status: 401,
+        code: 'invalid_api_key',
+        type: 'invalid_request_error',
+        message: `401 Incorrect API key provided: ${FAKE_KEY}. You can find your API key at https://platform.openai.com/account/api-keys.`,
+      },
+      expectIncludes: 'API key OpenAI không hợp lệ',
+    },
+    {
+      name: 'Anthropic 401 authentication_error',
+      provider: 'claude',
+      err: {
+        status: 401,
+        type: 'authentication_error',
+        message: '401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}',
+      },
+      expectIncludes: 'API key Claude (Anthropic) không hợp lệ',
+    },
+    {
+      name: 'Gemini 400 API_KEY_INVALID',
+      provider: 'gemini',
+      err: {
+        status: 400,
+        message: '[400 Bad Request] API key not valid. Please pass a valid API key.',
+        errorDetails: [{ reason: 'API_KEY_INVALID' }],
+      },
+      expectIncludes: 'API key Google Gemini không hợp lệ',
+    },
+    {
+      name: 'Notion { code: "unauthorized" }',
+      provider: 'notion',
+      err: { status: 401, code: 'unauthorized', message: 'API token is invalid.' },
+      expectIncludes: 'API key Notion không hợp lệ',
+    },
+    {
+      name: '429 rate limit',
+      provider: 'openai',
+      err: { status: 429, message: 'Rate limit reached for requests' },
+      expectIncludes: 'hạn mức',
+    },
+    {
+      name: '404 model not found',
+      provider: 'openai',
+      err: { status: 404, message: 'The model `gpt-99-fake` does not exist or you do not have access to it.' },
+      options: { model: 'gpt-99-fake' },
+      expectIncludes: 'gpt-99-fake',
+    },
+    {
+      name: 'ECONNREFUSED qua err.cause.code',
+      provider: '9router',
+      err: { message: 'fetch failed', cause: { code: 'ECONNREFUSED' } },
+      options: { baseURL: 'http://localhost:20128/v1' },
+      expectIncludes: 'Không kết nối được',
+    },
+    {
+      name: 'Lỗi không xác định (fallback)',
+      provider: 'openai',
+      err: { message: 'Something totally unexpected happened' },
+      expectIncludes: 'Something totally unexpected happened',
+    },
+  ];
+
+  for (const c of cases) {
+    const msg = explainAIError(c.err, c.provider, c.options || {});
+    assert.ok(
+      msg.includes(c.expectIncludes),
+      `[${c.name}] Kỳ vọng message chứa "${c.expectIncludes}", nhận được: "${msg}"`
+    );
+    assert.ok(!msg.includes(FAKE_KEY), `[${c.name}] Message rò rỉ key giả: "${msg}"`);
+  }
+
+  console.log('SELFCHECK OK');
+}
+
+if (process.argv.includes('--selfcheck')) {
+  runSelfCheck();
+}

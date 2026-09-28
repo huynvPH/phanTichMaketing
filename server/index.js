@@ -1,10 +1,9 @@
 import express from 'express';
-import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { YoutubeTranscript } from 'youtube-transcript';
-import { testAIConnection, callAI, fetchProviderModels, PROMPT_TEMPLATES } from './aiService.js';
+import { testAIConnection, callAI, fetchProviderModels, explainAIError, PROMPT_TEMPLATES } from './aiService.js';
 import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
 
 // Biến môi trường đã set từ trước (VD: trên Vercel) phải luôn thắng; thiếu file .env thì im lặng bỏ qua.
@@ -17,7 +16,6 @@ const CONFIG_FILE = path.join(__dirname, '..', 'config.json');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
 app.use(express.json({ limit: '15mb' }));
 
 // Helper: Đọc cấu hình cục bộ
@@ -270,6 +268,10 @@ function resolveProviderAuth(req, provider, model, cfg = loadConfig()) {
 
 // 5. API: Thực hiện phân tích AI theo quy trình
 app.post('/api/ai/analyze', async (req, res) => {
+  // Hoist ra ngoài try để catch vẫn biết đang gọi provider/model/baseURL nào mà diễn giải lỗi đúng.
+  let activeProvider;
+  let activeModel;
+  let targetBaseUrl;
   try {
     const {
       moduleType, // 'voc' | 'search' | 'competitor' | 'offer' | 'framing'
@@ -280,8 +282,11 @@ app.post('/api/ai/analyze', async (req, res) => {
     } = req.body;
 
     const cfg = loadConfig();
-    const { provider: activeProvider, apiKey, baseUrl: targetBaseUrl, error: authError } = resolveProviderAuth(req, req.body.provider, model, cfg);
-    if (authError) return res.status(400).json({ success: false, error: authError });
+    const authResult = resolveProviderAuth(req, req.body.provider, model, cfg);
+    activeProvider = authResult.provider;
+    const apiKey = authResult.apiKey;
+    targetBaseUrl = authResult.baseUrl;
+    if (authResult.error) return res.status(400).json({ success: false, error: authResult.error });
 
     const template = PROMPT_TEMPLATES[moduleType] || PROMPT_TEMPLATES.voc;
     const systemPrompt = template.systemPrompt;
@@ -300,7 +305,7 @@ ${typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2)}
 Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực tế và trả về đúng định dạng JSON như quy định.
 `;
 
-    const activeModel = model || { openrouter: cfg.openrouterModel, local: cfg.localModel }[activeProvider];
+    activeModel = model || { openrouter: cfg.openrouterModel, local: cfg.localModel }[activeProvider];
 
     const rawResponse = await callAI({
       provider: activeProvider,
@@ -325,7 +330,7 @@ Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực 
     });
   } catch (error) {
     console.error('Lỗi khi phân tích AI:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: explainAIError(error, activeProvider, { model: activeModel, baseURL: targetBaseUrl }) });
   }
 });
 
@@ -599,7 +604,7 @@ app.post('/api/crawl/:action', async (req, res) => {
   try {
     const cfg = loadConfig();
     const model = req.body.model || cfg.defaultModel;
-    const auth = resolveProviderAuth(req, req.body.provider, model); // auth.error (thiếu key) không chặn search/crawl/comments
+    const auth = resolveProviderAuth(req, req.body.provider, model, cfg); // auth.error (thiếu key) không chặn crawl/comments
 
     const llm = auth.apiKey || auth.provider === 'local'
       ? { provider: auth.provider, model, apiKey: auth.apiKey, baseUrl: auth.baseUrl }

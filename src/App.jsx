@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar, { TAB_GROUPS } from './components/Sidebar';
-import SettingsModal from './components/SettingsModal';
 import NotionSyncModal from './components/NotionSyncModal';
 import ProjectSelectorModal from './components/ProjectSelectorModal';
 import ExecutiveResearchView from './views/ExecutiveResearchView';
@@ -62,7 +61,6 @@ export default function App() {
     } catch {}
   }, [isSidebarOpen]);
 
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotionSyncOpen, setIsNotionSyncOpen] = useState(false);
   const [exportData, setExportData] = useState(null);
 
@@ -311,20 +309,12 @@ export default function App() {
       )}
 
       {/* Modals */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onConfigUpdated={fetchConfig}
-        currentModel={currentModel}
-        onModelChange={handleModelChange}
-      />
-
       <NotionSyncModal
         isOpen={isNotionSyncOpen}
         onClose={() => setIsNotionSyncOpen(false)}
         exportData={exportData}
         config={config}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={() => setActiveTab('settings')}
       />
 
       {isProjectSelectorOpen && (
