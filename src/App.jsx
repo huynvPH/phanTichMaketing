@@ -10,6 +10,7 @@ import ContentStrategyView from './views/ContentStrategyView';
 import ContentCalendarView from './views/ContentCalendarView';
 import NotionView from './views/NotionView';
 import SettingsView from './views/SettingsView';
+import WelcomeView from './views/WelcomeView';
 import {
   getAllProjects,
   getActiveProjectId,
@@ -19,6 +20,13 @@ import {
 } from './utils/projectManager';
 
 export default function App() {
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_has_seen_welcome') !== 'true';
+    } catch {
+      return true;
+    }
+  });
   const [activeTab, setActiveTab] = useState('all_in_one'); // Mặc định mở Form Tổng Hợp Tầng 1 cho Sếp
   const [currentModel, setCurrentModel] = useState(() => {
     try {
@@ -259,6 +267,7 @@ export default function App() {
   };
 
   const TAB_TITLES = {
+    welcome: 'Trang Chào Mừng',
     all_in_one: 'Nghiên Cứu Khách Hàng',
     competitor_videos: 'Tình Báo Video Đối Thủ',
     strategy: 'Chiến Lược Nội Dung',
@@ -266,6 +275,27 @@ export default function App() {
     notion: 'Đồng Bộ Notion',
     settings: 'Cài Đặt API',
   };
+
+  if (showWelcome) {
+    return (
+      <div className="h-screen w-screen overflow-y-auto bg-[#070707]">
+        <WelcomeView
+          onGetStarted={() => {
+            setShowWelcome(false);
+            if (activeTab === 'welcome') setActiveTab('all_in_one');
+          }}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onConfigUpdated={fetchConfig}
+          currentModel={currentModel}
+          onModelChange={handleModelChange}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-white text-zinc-900 flex antialiased overflow-hidden font-sans">
@@ -293,6 +323,14 @@ export default function App() {
 
         {/* Content Area */}
         <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0 bg-zinc-50">
+          {activeTab === 'welcome' && (
+            <div className="relative -m-6 md:-m-8 min-h-[calc(100vh-3.5rem)]">
+              <WelcomeView
+                onGetStarted={() => setActiveTab('all_in_one')}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+            </div>
+          )}
           {activeTab === 'all_in_one' && (
             <ExecutiveResearchView
               currentModel={currentModel}
