@@ -145,7 +145,6 @@ export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
               Tạo Dự Án Mới
             </button>
           </form>
-          {errorMsg && <p className="text-xs text-red-500 mt-2">{errorMsg}</p>}
         </div>
 
         {/* Project List */}

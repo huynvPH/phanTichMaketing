@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -11,13 +11,12 @@ import {
   Swords,
   Tag,
   Download,
-  FileText,
-  AlertTriangle
+  FileText
 } from 'lucide-react';
 import MetricBadge from '../components/MetricBadge';
 import DataVerificationCard from '../components/DataVerificationCard';
 import CrawlPanel from '../components/CrawlPanel';
-import { readLS, writeLS, downloadFile } from '../utils/projectManager';
+import { readLS, writeLS, downloadFile, postJSON } from '../utils/projectManager';
 
 const EMPTY_FORM = {
   productName: '',
@@ -59,48 +58,17 @@ export default function ExecutiveResearchView({
 
   // Hiệu ứng chuyển động các giai đoạn phân tích khi loading
   useEffect(() => {
-    let timer;
-    if (loading) {
-      setProgressStep(0);
-      timer = setInterval(() => {
-        setProgressStep((prev) => (prev < 3 ? prev + 1 : prev));
-      }, 3500);
-    } else {
-      setProgressStep(0);
-    }
-    return () => clearInterval(timer);
+    setProgressStep(0);
+    if (!loading) return;
+    const t = setInterval(() => setProgressStep((p) => Math.min(p + 1, 3)), 3500);
+    return () => clearInterval(t);
   }, [loading]);
 
-  // Đánh giá sơ bộ chất lượng dữ liệu đầu vào (Input Health Gatekeeper)
-  const getInputHealth = () => {
-    const raw = (formData.customerPainRaw || '').trim();
-    const words = raw ? raw.split(/\s+/).length : 0;
-    if (!formData.productName && words === 0) return null;
-    if (words < 25) {
-      return { 
-        status: 'low', 
-        text: `Dữ liệu phản hồi của khách còn ít (${words} từ). AI sẽ phải dùng nhiều giả định định tính. Khuyến nghị dán thêm 5-10 review/comment thật.` 
-      };
-    }
-    if (words < 120) {
-      return { 
-        status: 'medium', 
-        text: `Độ dài dữ liệu mức trung bình (${words} từ). Đủ để bóc tách các nỗi đau và rào cản chính.` 
-      };
-    }
-    return { 
-      status: 'good', 
-      text: `Dữ liệu VoC phong phú (${words} từ). Bằng chứng thực tế cao, giảm thiểu nguy cơ ảo giác!` 
-    };
-  };
-  const inputHealth = getInputHealth();
+  // Lưu form vào localStorage mỗi khi thay đổi
+  useEffect(() => writeLS('marketing_executive_form', formData), [formData]);
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => {
-      const updated = { ...prev, [field]: value };
-      writeLS('marketing_executive_form', updated);
-      return updated;
-    });
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleResetForm = () => {
@@ -108,7 +76,6 @@ export default function ExecutiveResearchView({
       setFormData(EMPTY_FORM);
       setRawTextOutput('');
       try {
-        localStorage.removeItem('marketing_executive_form');
         localStorage.removeItem('marketing_executive_raw');
       } catch {}
       onResetResearch?.();
@@ -124,33 +91,24 @@ export default function ExecutiveResearchView({
 
     setLoading(true);
     try {
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moduleType: 'all_in_one_research',
-          model: currentModel,
-          rawData: {
-            productName: formData.productName,
-            industry: formData.industry,
-            targetAudience: formData.targetAudience,
-            businessGoal: formData.businessGoal,
-            customerFeedbackAndPain: formData.customerPainRaw,
-            competitorAndOffer: formData.competitorAndOffer,
-          },
-          metadata: {
-            product: formData.productName,
-            industry: formData.industry,
-            targetAudience: formData.targetAudience,
-            source: 'Executive Research',
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Có lỗi xảy ra khi phân tích.');
-      }
+      const data = await postJSON('/api/ai/analyze', {
+        moduleType: 'all_in_one_research',
+        model: currentModel,
+        rawData: {
+          productName: formData.productName,
+          industry: formData.industry,
+          targetAudience: formData.targetAudience,
+          businessGoal: formData.businessGoal,
+          customerFeedbackAndPain: formData.customerPainRaw,
+          competitorAndOffer: formData.competitorAndOffer,
+        },
+        metadata: {
+          product: formData.productName,
+          industry: formData.industry,
+          targetAudience: formData.targetAudience,
+          source: 'Executive Research',
+        },
+      }, 'Có lỗi xảy ra khi phân tích.');
 
       if (data.rawText) {
         setRawTextOutput(data.rawText);
@@ -159,11 +117,7 @@ export default function ExecutiveResearchView({
         } catch {}
       }
 
-      const analyzed = data.data;
-
-      if (onSaveAllResearch && analyzed) {
-        onSaveAllResearch(analyzed, formData);
-      }
+      if (data.data) onSaveAllResearch?.(data.data, formData);
     } catch (err) {
       alert('Lỗi phân tích: ' + err.message);
     } finally {
@@ -395,9 +349,7 @@ export default function ExecutiveResearchView({
                 onAppend={(text) =>
                   setFormData((prev) => {
                     const cur = prev.customerPainRaw || '';
-                    const updated = { ...prev, customerPainRaw: cur.trim() ? `${cur}\n\n${text}` : text };
-                    writeLS('marketing_executive_form', updated);
-                    return updated;
+                    return { ...prev, customerPainRaw: cur.trim() ? `${cur}\n\n${text}` : text };
                   })
                 }
               />
@@ -445,11 +397,8 @@ export default function ExecutiveResearchView({
         </div>
 
         {/* Bottom Form Actions */}
-        <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
-          <span className="text-xs text-zinc-400 hidden sm:inline">
-            * Dữ liệu phản hồi VoC càng chi tiết, kết quả phân tích càng chính xác.
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
+        <div className="pt-4 border-t border-zinc-100 flex items-center justify-end">
+          <div className="flex items-center gap-2">
             {(formData.productName || formData.customerPainRaw || result) && (
               <button
                 onClick={handleResetForm}

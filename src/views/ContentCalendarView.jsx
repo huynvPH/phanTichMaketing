@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Sparkles,
   Share2,
@@ -6,21 +6,19 @@ import {
   Check,
   Download
 } from 'lucide-react';
-import { downloadFile } from '../utils/projectManager';
+import { downloadFile, postJSON } from '../utils/projectManager';
 
 export default function ContentCalendarView({
   currentModel,
   researchContext,
   strategyData,
-  calendarData,
+  calendarData: calendar,
   onSaveCalendar,
   onSyncToNotion
 }) {
   const [selectedChannel, setSelectedChannel] = useState('TikTok');
   const [period, setPeriod] = useState('7 ngày (Weekly Sprint)');
   const [loading, setLoading] = useState(false);
-  // Lịch: dùng thẳng prop từ dự án đang chọn (không mirror state cục bộ)
-  const calendar = calendarData || null;
   const [copiedId, setCopiedId] = useState(null);
 
   const channels = ['TikTok', 'Facebook Fanpage', 'Shopee/Reels', 'Website/Blog SEO', 'YouTube Shorts'];
@@ -47,24 +45,17 @@ export default function ContentCalendarView({
         },
       };
 
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moduleType: 'calendar',
-          model: currentModel,
-          rawData: groundingPayload,
-          metadata: {
-            channel: selectedChannel,
-            period: period,
-            source: 'Hệ thống Lập Lịch Đăng Bài Tầng 3',
-          },
-          customPrompt: `BẮT BUỘC: Không tự bịa topic. Mỗi post phải gán chính xác insightCode và verbatimEvidence (trích dẫn nguyên văn) từ dữ liệu nghiên cứu khách hàng đã cho.`,
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Lỗi khi tạo lịch');
+      const data = await postJSON('/api/ai/analyze', {
+        moduleType: 'calendar',
+        model: currentModel,
+        rawData: groundingPayload,
+        metadata: {
+          channel: selectedChannel,
+          period: period,
+          source: 'Hệ thống Lập Lịch Đăng Bài Tầng 3',
+        },
+        customPrompt: `BẮT BUỘC: Không tự bịa topic. Mỗi post phải gán chính xác insightCode và verbatimEvidence (trích dẫn nguyên văn) từ dữ liệu nghiên cứu khách hàng đã cho.`,
+      }, 'Lỗi khi tạo lịch');
 
       if (onSaveCalendar) onSaveCalendar(data.data);
     } catch (err) {
@@ -102,11 +93,7 @@ export default function ContentCalendarView({
       'Trích dẫn nguyên văn khách hàng (Verbatim)',
     ];
 
-    const escapeCSV = (str) => {
-      if (str === null || str === undefined) return '""';
-      const s = String(str).replace(/"/g, '""');
-      return `"${s}"`;
-    };
+    const escapeCSV = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
     const rows = calendar.posts.map((post, index) => {
       const outlineStr = Array.isArray(post.keyOutline) ? post.keyOutline.join(' | ') : (post.keyOutline || '');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import MetricBadge from '../components/MetricBadge';
 import DataVerificationCard from '../components/DataVerificationCard';
+import { postJSON } from '../utils/projectManager';
 
 export default function CompetitorVideoView({
   currentModel,
@@ -84,19 +85,11 @@ export default function CompetitorVideoView({
     }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === 'string') {
-        setLinksText((prev) => (prev ? `${prev}\n${content}` : content));
-        setInputMode('links');
-      }
-    };
-    reader.readAsText(file);
+  const handleFileUpload = async (e) => {
+    const content = await e.target.files?.[0]?.text();
+    if (content == null) return;
+    setLinksText((prev) => (prev ? `${prev}\n${content}` : content));
+    setInputMode('links');
   };
 
   // Tự động cào Transcript từ các link YouTube/Shorts đã nhập (kèm Fallback khi máy chủ Vercel bị chặn IP)
@@ -109,42 +102,27 @@ export default function CompetitorVideoView({
     setFetchingTranscript(true);
     setTranscriptNotice(null);
     try {
-      const res = await fetch('/api/competitor/fetch-transcript', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: detectedLinks }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Lỗi khi trích xuất phụ đề.');
-      }
+      const data = await postJSON('/api/competitor/fetch-transcript', { urls: detectedLinks }, 'Lỗi khi trích xuất phụ đề.');
 
       if (data.combinedText) {
-        setScriptsText((prev) => {
-          if (prev.trim()) {
-            return `${prev}\n\n=== PHỤ ĐỀ / TRANSCRIPT TỰ ĐỘNG CÀO ===\n${data.combinedText}`;
-          }
-          return data.combinedText;
-        });
-        setInputMode('scripts');
+        setScriptsText((prev) => (prev.trim() ? `${prev}\n\n=== PHỤ ĐỀ / TRANSCRIPT TỰ ĐỘNG CÀO ===\n${data.combinedText}` : data.combinedText));
         setTranscriptNotice({
           type: 'success',
           text: `Đã trích xuất thành công lời thoại của ${data.successCount}/${data.total} video! Bạn có thể xem hoặc chỉnh sửa trực tiếp bên dưới.`,
         });
       } else {
-        setInputMode('scripts');
         setTranscriptNotice({
           type: 'warning',
           text: 'YouTube có thể đang hạn chế quét tự động qua IP máy chủ đám mây hoặc video chưa bật phụ đề. Bạn hãy dán trực tiếp lời thoại hoặc nội dung tóm tắt của video vào ô dưới đây để tiếp tục phân tích!',
         });
       }
     } catch (err) {
-      setInputMode('scripts');
       setTranscriptNotice({
         type: 'warning',
         text: `Không thể tự động tải phụ đề (${err.message}). Bạn hãy dán trực tiếp lời thoại hoặc ghi chú phân tích video vào ô dưới đây để tiếp tục!`,
       });
     } finally {
+      setInputMode('scripts');
       setFetchingTranscript(false);
     }
   };
@@ -160,27 +138,17 @@ export default function CompetitorVideoView({
     }
 
     setLoading(true);
-    setProcessingStep(1);
 
     // Giả lập trực quan các bước xử lý pipeline
-    const stepTimer1 = setTimeout(() => setProcessingStep(2), 900);
-    const stepTimer2 = setTimeout(() => setProcessingStep(3), 1800);
-    const stepTimer3 = setTimeout(() => setProcessingStep(4), 2700);
+    const timers = [2, 3, 4].map((step, i) => setTimeout(() => setProcessingStep(step), (i + 1) * 900));
 
     try {
       // 1. Phân tích Link trước nếu có
       let parsedLinksData = [];
       if (hasLinks) {
         try {
-          const parseRes = await fetch('/api/competitor/parse-links', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ links: detectedLinks }),
-          });
-          const parseJson = await parseRes.json();
-          if (parseJson.success) {
-            parsedLinksData = parseJson.videos;
-          }
+          const parseJson = await postJSON('/api/competitor/parse-links', { links: detectedLinks }, 'Lỗi khi phân tích link.');
+          parsedLinksData = parseJson.videos;
         } catch {}
       }
 
@@ -193,25 +161,16 @@ export default function CompetitorVideoView({
         industry: targetIndustry || 'Chưa xác định',
       };
 
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moduleType: 'competitor_video_pipeline',
-          model: currentModel,
-          rawData: payloadData,
-          metadata: {
-            industry: targetIndustry || 'Chưa xác định',
-            source: 'Competitor Video Pipeline 4-Step',
-            linkCount: detectedLinks.length,
-          },
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Có lỗi xảy ra trong quá trình phân tích video.');
-      }
+      const data = await postJSON('/api/ai/analyze', {
+        moduleType: 'competitor_video_pipeline',
+        model: currentModel,
+        rawData: payloadData,
+        metadata: {
+          industry: targetIndustry || 'Chưa xác định',
+          source: 'Competitor Video Pipeline 4-Step',
+          linkCount: detectedLinks.length,
+        },
+      }, 'Có lỗi xảy ra trong quá trình phân tích video.');
 
       if (data.rawText) {
         setRawTextOutput(data.rawText);
@@ -220,18 +179,12 @@ export default function CompetitorVideoView({
         } catch {}
       }
 
-      const analyzed = data.data;
-
       // Đồng bộ vào kho dữ liệu Tầng 1 (result sẽ tự cập nhật qua researchContext)
-      if (onSaveCompetitorData && analyzed) {
-        onSaveCompetitorData(analyzed, payloadData);
-      }
+      if (data.data) onSaveCompetitorData?.(data.data, payloadData);
     } catch (err) {
       alert('Lỗi xử lý video đối thủ: ' + err.message);
     } finally {
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-      clearTimeout(stepTimer3);
+      timers.forEach(clearTimeout);
       setLoading(false);
       setProcessingStep(1);
     }

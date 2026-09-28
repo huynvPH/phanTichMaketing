@@ -1,1 +1,0 @@
-export { fetchNotionTargets } from './projectManager';

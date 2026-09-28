@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sparkles,
   ArrowRight,
@@ -6,12 +6,12 @@ import {
   CheckCircle2,
   XCircle
 } from 'lucide-react';
-import { readLS, writeLS } from '../utils/projectManager';
+import { readLS, writeLS, postJSON } from '../utils/projectManager';
 
 export default function ContentStrategyView({
   currentModel,
   researchContext,
-  strategyData,
+  strategyData: strategy,
   onSaveStrategy,
   onSyncToNotion,
   onNavigateToCalendar
@@ -31,17 +31,10 @@ export default function ContentStrategyView({
   }));
 
   const [loading, setLoading] = useState(false);
-  // Chiến lược: dùng thẳng prop từ dự án đang chọn (không mirror state cục bộ)
-  const strategy = strategyData || null;
 
   // Cập nhật lại form nếu có dữ liệu mới từ researchContext
   useEffect(() => {
-    if (!formData.brandPositioning && initialProduct) {
-      setFormData((prev) => ({
-        ...prev,
-        brandPositioning: initialProduct,
-      }));
-    }
+    if (!formData.brandPositioning && initialProduct) setFormData((prev) => ({ ...prev, brandPositioning: initialProduct }));
   }, [initialProduct]);
 
   const handleInputChange = (field, value) => {
@@ -77,24 +70,17 @@ export default function ContentStrategyView({
         },
       };
 
-      const res = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          moduleType: 'strategy',
-          model: currentModel,
-          rawData: combinedResearchData,
-          metadata: {
-            product: formData.brandPositioning,
-            targetAudience: formData.targetCustomer,
-            source: 'Hệ thống Chiến Lược Nội Dung Tầng 2',
-          },
-          customPrompt: `Thiết lập 3-4 Content Pillars bám sát 100% vào các Nỗi đau VoC, Rào cản và Động lực mua của khách hàng. Phân chia rõ tỷ lệ % và ma trận vai trò từng kênh.`,
-        }),
-      });
-
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Lỗi khi tạo chiến lược');
+      const data = await postJSON('/api/ai/analyze', {
+        moduleType: 'strategy',
+        model: currentModel,
+        rawData: combinedResearchData,
+        metadata: {
+          product: formData.brandPositioning,
+          targetAudience: formData.targetCustomer,
+          source: 'Hệ thống Chiến Lược Nội Dung Tầng 2',
+        },
+        customPrompt: `Thiết lập 3-4 Content Pillars bám sát 100% vào các Nỗi đau VoC, Rào cản và Động lực mua của khách hàng. Phân chia rõ tỷ lệ % và ma trận vai trò từng kênh.`,
+      }, 'Lỗi khi tạo chiến lược');
 
       if (onSaveStrategy) onSaveStrategy(data.data);
     } catch (err) {

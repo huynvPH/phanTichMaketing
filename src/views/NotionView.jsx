@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ExternalLink, RefreshCw, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
-import { readLS } from '../utils/projectManager';
-import { fetchNotionTargets } from '../utils/notionClient';
+import { readLS, fetchNotionTargets } from '../utils/projectManager';
 
 export default function NotionView({ config, onOpenSettings }) {
   const [targets, setTargets] = useState([]);

@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Key, 
-  CheckCircle, 
-  AlertCircle, 
-  RefreshCw, 
-  Database, 
-  Cpu, 
-  Server, 
-  Save, 
+import { useState, useEffect } from 'react';
+import {
+  Key,
+  CheckCircle,
+  AlertCircle,
+  RefreshCw,
+  Database,
+  Cpu,
+  Server,
+  Save,
   ExternalLink,
   Check
 } from 'lucide-react';
 import ModelSelector, { mergeDynamicModels } from '../components/ModelSelector';
-import { fetchNotionTargets } from '../utils/notionClient';
+import { fetchNotionTargets } from '../utils/projectManager';
 
 const PROVIDER_CARDS = [
   {
@@ -106,13 +106,8 @@ export default function SettingsView({ currentModel, onModelChange, onConfigUpda
   const handleTest = async (provider) => {
     setLoadingTest((prev) => ({ ...prev, [provider]: true }));
     try {
-      let apiKey = '';
-
-      if (provider === '9router') apiKey = formData.nineRouterApiKey;
-      else if (provider === 'openai') apiKey = formData.openaiApiKey;
-      else if (provider === 'claude') apiKey = formData.anthropicApiKey;
-      else if (provider === 'gemini') apiKey = formData.geminiApiKey;
-      else if (provider === 'notion') apiKey = formData.notionToken;
+      const card = PROVIDER_CARDS.find((c) => c.id === provider);
+      const apiKey = formData[card ? card.field : 'notionToken'];
 
       const res = await fetch('/api/test-connection', {
         method: 'POST',
@@ -140,28 +135,12 @@ export default function SettingsView({ currentModel, onModelChange, onConfigUpda
   const handleSave = (e) => {
     if (e) e.preventDefault();
     try {
-      const toSave = {
-        openaiApiKey: formData.openaiApiKey,
-        anthropicApiKey: formData.anthropicApiKey,
-        geminiApiKey: formData.geminiApiKey,
-        nineRouterApiKey: formData.nineRouterApiKey,
-        notionToken: formData.notionToken,
-        notionParentId: formData.notionParentId,
-        notionParentType: formData.notionParentType,
-      };
-      localStorage.setItem('marketing_client_keys', JSON.stringify(toSave));
+      localStorage.setItem('marketing_client_keys', JSON.stringify(formData));
     } catch (e) {
       console.warn('Lỗi lưu localStorage:', e);
     }
 
-    const payload = {};
-    if (formData.nineRouterApiKey) payload.nineRouterApiKey = formData.nineRouterApiKey;
-    if (formData.openaiApiKey) payload.openaiApiKey = formData.openaiApiKey;
-    if (formData.anthropicApiKey) payload.anthropicApiKey = formData.anthropicApiKey;
-    if (formData.geminiApiKey) payload.geminiApiKey = formData.geminiApiKey;
-    if (formData.notionToken) payload.notionToken = formData.notionToken;
-    payload.notionParentId = formData.notionParentId;
-    payload.notionParentType = formData.notionParentType;
+    const payload = Object.fromEntries(Object.entries(formData).filter(([k, v]) => v || k.startsWith('notionParent')));
 
     fetch('/api/config', {
       method: 'POST',

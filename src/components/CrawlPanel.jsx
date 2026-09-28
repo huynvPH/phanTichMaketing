@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Sparkles, Compass, AlertTriangle, Link as LinkIcon, FileText } from 'lucide-react';
+import { postJSON } from '../utils/projectManager';
 
 const MODES = [
   { id: 'research', icon: Sparkles, label: 'Tự động tìm kiếm' },
@@ -47,17 +48,6 @@ function parseInstruction(text) {
     .join(' ');
 }
 
-async function postCrawl(action, body, fallbackError) {
-  const res = await fetch(`/api/crawl/${action}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.success) throw new Error(data.error || fallbackError);
-  return data;
-}
-
 /**
  * AI Crawl Feedback thật — gom về 1 khối duy nhất trong Tầng 1 (VoC).
  * 3 chế độ: AI tự tìm nguồn theo chủ đề / Link -> Comment / Link -> Nội dung.
@@ -87,8 +77,8 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
     setNotice(null);
     try {
       const selected = Object.keys(platforms).filter((p) => platforms[p]);
-      const data = await postCrawl(
-        'research',
+      const data = await postJSON(
+        '/api/crawl/research',
         { topic, context, platforms: selected, maxSources: 10, model: currentModel },
         'Lỗi khi tự động crawl feedback.'
       );
@@ -119,8 +109,8 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
     for (const url of urls) {
       const platform = detectPlatform(url);
       try {
-        const data = await postCrawl(
-          'comments',
+        const data = await postJSON(
+          '/api/crawl/comments',
           { url, max: 100, profile: platform === 'facebook' ? 'facebook' : undefined, model: currentModel, instruction, context },
           'Lỗi khi crawl comment.'
         );
@@ -169,8 +159,8 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
     setNotice(null);
     try {
       const hasFacebookUrl = urls.some((url) => detectPlatform(url) === 'facebook');
-      const data = await postCrawl(
-        'crawl',
+      const data = await postJSON(
+        '/api/crawl/crawl',
         { urls, filter: 'fit', model: currentModel, ...(hasFacebookUrl && { profile: 'facebook' }) },
         'Lỗi khi crawl nội dung.'
       );
@@ -208,7 +198,7 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
       text: 'Chrome đã mở — hãy đăng nhập Facebook trong cửa sổ đó. Cửa sổ sẽ tự đóng khi đăng nhập xong (tối đa 4 phút).',
     });
     try {
-      const data = await postCrawl('profiles-create', { name: 'facebook' }, 'Lỗi khi đăng nhập Facebook.');
+      const data = await postJSON('/api/crawl/profiles-create', { name: 'facebook' }, 'Lỗi khi đăng nhập Facebook.');
       if (data.loggedIn) {
         setNotice({ type: 'success', text: 'Đã lưu đăng nhập Facebook — giờ có thể crawl comment Facebook.' });
       } else {

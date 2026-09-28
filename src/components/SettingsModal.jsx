@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Key, CheckCircle, AlertCircle, RefreshCw, Database, Cpu, Server } from 'lucide-react';
 import ModelSelector, { mergeDynamicModels } from './ModelSelector';
-import { fetchNotionTargets } from '../utils/notionClient';
+import { fetchNotionTargets } from '../utils/projectManager';
 
 const PROVIDER_CARDS = [
   {

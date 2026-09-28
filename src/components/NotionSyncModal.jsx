@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Database, CheckCircle2, RefreshCw } from 'lucide-react';
-import { fetchNotionTargets } from '../utils/notionClient';
+import { fetchNotionTargets, postJSON, readLS, writeLS } from '../utils/projectManager';
 
 export default function NotionSyncModal({ isOpen, onClose, exportData, config, onOpenSettings }) {
   const [title, setTitle] = useState('');
@@ -31,10 +31,6 @@ export default function NotionSyncModal({ isOpen, onClose, exportData, config, o
   };
 
   const handleSync = async () => {
-    if (!config.hasNotion) {
-      alert('Bạn chưa cấu hình Notion Token.');
-      return;
-    }
     const targetId = selectedTarget || config.notionParentId;
     if (!targetId) {
       alert('Vui lòng chọn hoặc nhập Trang Notion đích.');
@@ -43,24 +39,17 @@ export default function NotionSyncModal({ isOpen, onClose, exportData, config, o
 
     setSyncing(true);
     try {
-      const res = await fetch('/api/notion/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId,
-          targetType,
-          title,
-          moduleName: exportData.moduleName,
-          rawData: exportData.rawData,
-          analysisJson: exportData.analysisJson,
-        }),
+      const data = await postJSON('/api/notion/sync', {
+        targetId,
+        targetType,
+        title,
+        moduleName: exportData.moduleName,
+        analysisJson: exportData.analysisJson,
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
 
       setSyncResult(data);
 
-      const prev = JSON.parse(localStorage.getItem('notion_synced_reports') || '[]');
+      const prev = readLS('notion_synced_reports', []);
       const updated = [
         {
           title,
@@ -70,7 +59,7 @@ export default function NotionSyncModal({ isOpen, onClose, exportData, config, o
         },
         ...prev,
       ].slice(0, 30);
-      localStorage.setItem('notion_synced_reports', JSON.stringify(updated));
+      writeLS('notion_synced_reports', updated);
     } catch (err) {
       alert('Lỗi xuất Notion: ' + err.message);
     } finally {

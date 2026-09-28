@@ -2,48 +2,48 @@ import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const DEFAULT_MODELS = {
+  gemini: [
+    { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Khuyên dùng)', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
+    { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Google Cao Cấp', provider: 'gemini', category: 'Google' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Google', provider: 'gemini', category: 'Google' },
+  ],
+  openai: [
+    { id: 'gpt-4o', name: 'GPT-4o (Khuyên dùng)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Nhanh & Tiết kiệm)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+    { id: 'o3-mini', name: 'o3-mini (Tư duy sâu)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+    { id: 'o1', name: 'o1 (Reasoning cao cấp)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
+  ],
+  claude: [
+    { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet (Mới nhất)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Chuẩn VoC)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Siêu tốc)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
+  ],
+  '9router': [
+    { id: 'ag/claude-sonnet-4-6', name: 'Claude Sonnet (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+    { id: 'ag/gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+    { id: 'ag/gemini-3.6-flash-high', name: 'Gemini 3.6 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
+  ],
+};
+
 export function getDefaultModels(provider) {
-  switch (provider) {
-    case 'gemini':
-      return [
-        { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Khuyên dùng)', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
-        { id: 'gemini-flash-latest', name: 'Gemini Flash Latest', tag: 'Google Miễn Phí', provider: 'gemini', category: 'Google' },
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Google Cao Cấp', provider: 'gemini', category: 'Google' },
-        { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'Google', provider: 'gemini', category: 'Google' },
-      ];
-    case 'openai':
-      return [
-        { id: 'gpt-4o', name: 'GPT-4o (Khuyên dùng)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Nhanh & Tiết kiệm)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
-        { id: 'o3-mini', name: 'o3-mini (Tư duy sâu)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
-        { id: 'o1', name: 'o1 (Reasoning cao cấp)', tag: 'OpenAI Direct', provider: 'openai', category: 'OpenAI' },
-      ];
-    case 'claude':
-      return [
-        { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet (Mới nhất)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
-        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Chuẩn VoC)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
-        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Siêu tốc)', tag: 'Anthropic Direct', provider: 'claude', category: 'Claude' },
-      ];
-    case '9router':
-      return [
-        { id: 'ag/claude-sonnet-4-6', name: 'Claude Sonnet (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
-        { id: 'ag/gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
-        { id: 'ag/gemini-3.6-flash-high', name: 'Gemini 3.6 Flash High (9Router)', tag: '9Router', provider: '9router', category: '9Router' },
-      ];
-    case 'openrouter':
-      return [
-        { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3 (OpenRouter)', tag: 'Rẻ 99%', provider: 'openrouter', category: 'OpenRouter' },
-        { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1 (Lý luận sâu)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
-        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
-        { id: 'google/gemini-2.5-flash', name: 'Gemini 2.5 Flash (OpenRouter)', tag: 'OpenRouter', provider: 'openrouter', category: 'OpenRouter' },
-      ];
-    case 'local':
-      return [
-        { id: 'local-model', name: 'Local Model (Ollama / LM Studio)', tag: 'Offline 0đ', provider: 'local', category: 'Local AI' },
-      ];
-    default:
-      return [];
-  }
+  return DEFAULT_MODELS[provider] || [];
+}
+
+// Bộ lọc/chuẩn hoá danh sách model Chat của OpenAI, dùng chung cho fetchProviderModels và testAIConnection
+// để tránh gọi openai.models.list() (GET /v1/models) hai lần cho cùng một request.
+function filterOpenAIChatModels(data) {
+  return (data || [])
+    .filter(m => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3') || m.id.startsWith('chatgpt-'))
+    .filter(m => !m.id.includes('realtime') && !m.id.includes('audio') && !m.id.includes('transcribe') && !m.id.includes('tts'))
+    .map(m => ({
+      id: m.id,
+      name: m.id,
+      provider: 'openai',
+      tag: 'OpenAI Direct',
+      category: 'OpenAI'
+    }));
 }
 
 export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
@@ -78,16 +78,7 @@ export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
       if (!apiKey) return getDefaultModels('openai');
       const openai = new OpenAI({ apiKey });
       const res = await openai.models.list();
-      const chatModels = (res.data || [])
-        .filter(m => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3') || m.id.startsWith('chatgpt-'))
-        .filter(m => !m.id.includes('realtime') && !m.id.includes('audio') && !m.id.includes('transcribe') && !m.id.includes('tts'))
-        .map(m => ({
-          id: m.id,
-          name: m.id,
-          provider: 'openai',
-          tag: 'OpenAI Direct',
-          category: 'OpenAI'
-        }));
+      const chatModels = filterOpenAIChatModels(res.data);
       return chatModels.length > 0 ? chatModels : getDefaultModels('openai');
     }
     else if (provider === '9router') {
@@ -106,38 +97,6 @@ export async function fetchProviderModels(provider, apiKey, customBaseUrl) {
       }));
       return models.length > 0 ? models : getDefaultModels('9router');
     }
-    else if (provider === 'openrouter') {
-      const res = await fetch('https://openrouter.ai/api/v1/models');
-      if (!res.ok) return getDefaultModels('openrouter');
-      const data = await res.json();
-      const models = (data.data || [])
-        .slice(0, 40)
-        .map(m => ({
-          id: m.id,
-          name: m.name || m.id,
-          provider: 'openrouter',
-          tag: 'OpenRouter',
-          category: 'OpenRouter'
-        }));
-      return models.length > 0 ? models : getDefaultModels('openrouter');
-    }
-    else if (provider === 'local') {
-      const baseURL = customBaseUrl || 'http://localhost:11434/v1';
-      const res = await fetch(`${baseURL.replace(/\/$/, '')}/models`);
-      if (!res.ok) return getDefaultModels('local');
-      const data = await res.json();
-      const models = (data.data || []).map(m => ({
-        id: m.id,
-        name: m.id,
-        provider: 'local',
-        tag: 'Offline 0đ',
-        category: 'Local AI'
-      }));
-      return models.length > 0 ? models : getDefaultModels('local');
-    }
-    else if (provider === 'claude') {
-      return getDefaultModels('claude');
-    }
   } catch (err) {
     console.warn(`Lỗi fetchProviderModels cho ${provider}:`, err.message);
     return getDefaultModels(provider);
@@ -151,13 +110,14 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
     if (provider === 'openai') {
       const openai = new OpenAI({ apiKey });
       const res = await openai.models.list();
-      modelsList = await fetchProviderModels('openai', apiKey);
-      return { 
-        success: true, 
+      const chatModels = filterOpenAIChatModels(res.data);
+      modelsList = chatModels.length > 0 ? chatModels : getDefaultModels('openai');
+      return {
+        success: true,
         message: `Kết nối OpenAI thành công! (${res.data.length} models sẵn sàng)`,
-        models: modelsList 
+        models: modelsList
       };
-    } 
+    }
     else if (provider === 'claude') {
       const anthropic = new Anthropic({ apiKey });
       await anthropic.messages.create({
@@ -204,23 +164,6 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
         models: modelsList 
       };
     }
-    else if (provider === 'openrouter') {
-      modelsList = await fetchProviderModels('openrouter', apiKey);
-      return { 
-        success: true, 
-        message: `Kết nối OpenRouter thành công! Tải được ${modelsList.length} models phổ biến.`,
-        models: modelsList 
-      };
-    }
-    else if (provider === 'local') {
-      const baseURL = customBaseUrl || 'http://localhost:11434/v1';
-      modelsList = await fetchProviderModels('local', apiKey, baseURL);
-      return { 
-        success: true, 
-        message: `Kết nối Local AI (${baseURL}) thành công! Tìm thấy ${modelsList.length} models.`,
-        models: modelsList 
-      };
-    }
     throw new Error('Nhà cung cấp không hợp lệ');
   } catch (error) {
     return { success: false, message: error.message || 'Lỗi không xác định khi kết nối' };
@@ -228,9 +171,8 @@ export async function testAIConnection(provider, apiKey, model, customBaseUrl) {
 }
 
 export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt, jsonMode = false, customBaseUrl }) {
-  if (provider !== 'local' && !apiKey) {
-    throw new Error(`Chưa cấu hình API Key cho ${provider.toUpperCase()}`);
-  }
+  // Không cần guard thiếu API Key ở đây: caller duy nhất (route /api/ai/analyze trong index.js) đã
+  // trả 400 qua resolveProviderAuth cho cùng điều kiện này trước khi gọi tới callAI.
 
   // OpenAI-compatible providers: OpenAI, OpenRouter, 9Router, Local (Ollama/LM Studio)
   if (['openai', 'openrouter', '9router', 'local'].includes(provider)) {
@@ -251,7 +193,7 @@ export async function callAI({ provider, apiKey, model, systemPrompt, userPrompt
       : 'gpt-4o';
 
     const client = new OpenAI({
-      apiKey: apiKey || 'local-no-key',
+      apiKey,
       ...(baseURL && { baseURL }),
       ...(provider === 'openrouter' && {
         defaultHeaders: { 'HTTP-Referer': 'http://localhost:5173', 'X-Title': 'Marketing AI Hub' },
@@ -497,42 +439,6 @@ Hãy trả về định dạng JSON theo cấu trúc:
   "marketingHooks": ["3-5 gợi ý câu Hook mở đầu video/bài viết dựa trên đúng từ vựng của khách"]
 }`,
   },
-  search: {
-    name: 'Nhánh 1 - Nhu cầu tìm kiếm & Ý định mua (Search Demand)',
-    systemPrompt: `Bạn là một Chuyên gia Chiến lược Tìm kiếm & SEO Inbound Marketing hàng đầu.
-Phân tích danh sách từ khóa, câu hỏi tìm kiếm, xu hướng ngành.
-Hãy phân loại theo Search Intent, Hành trình mua hàng (Awareness, Consideration, Decision), tính mùa vụ và mức độ ưu tiên.
-Trả về định dạng JSON:
-{
-  "summary": "Đánh giá xu hướng tìm kiếm và nhu cầu chủ động của khách hàng",
-  "intentClusters": [
-    {
-      "theme": "Chủ đề / Nhóm nhu cầu",
-      "searchIntent": "Thông tin / So sánh / Giao dịch / Điều hướng",
-      "stage": "Nhận biết / Cân nhắc / Quyết định",
-      "priority": "Cao / Trung bình / Thấp",
-      "questions": ["Các câu hỏi tiêu biểu"],
-      "recommendedContent": "Gợi ý định dạng nội dung (Blog so sánh, Video hướng dẫn, Bảng giá...)"
-    }
-  ],
-  "seasonality": "Nhận định về tính mùa vụ và thời điểm vàng",
-  "contentGaps": ["Lỗ hổng thông tin mà các kết quả tìm kiếm hiện tại chưa giải quyết thỏa đáng"]
-}`,
-  },
-  competitor: {
-    name: 'Nhánh 3 - Nội dung đối thủ & Góc tiếp cận (Competitor Intelligence)',
-    systemPrompt: `Bạn là Chuyên gia Tình báo Cạnh tranh và Đạo diễn Nội dung Viral (Content Strategist).
-Phân tích các bài đăng, video, góc tiếp cận (Angle), cách mở đầu (Hook) và kêu gọi hành động (CTA) của đối thủ.
-Chỉ ra những góc tiếp cận đã quá bão hòa (Red Ocean) và những khoảng trống cơ hội (Blue Ocean).
-Trả về JSON:
-{
-  "summary": "Tổng quan chiến lược nội dung của nhóm đối thủ tham chiếu",
-  "winningFormats": [{"format": "Định dạng", "reason": "Lý do hiệu quả", "hookStyle": "Kiểu Hook mở đầu"}],
-  "saturatedThemes": [{"theme": "Chủ đề đang bị làm quá nhiều", "warning": "Lời khuyên né tránh hoặc đổi góc"}],
-  "blueOceanAngles": [{"angle": "Góc tiếp cận độc đáo chưa ai khai thác", "executionIdea": "Ý tưởng triển khai"}],
-  "suggestedCTAs": ["Các CTA tự nhiên, tỷ lệ chuyển đổi cao"]
-}`,
-  },
   competitor_video_pipeline: {
     name: 'Tình Báo Video Đối Thủ Hàng Loạt (Competitor Video Pipeline 4-Step)',
     systemPrompt: `Bạn là Giám đốc Sáng tạo Nội dung Viral & Chuyên gia Tình báo Cạnh tranh Đa Kênh (Chief Creative Officer & Ad Intelligence Lead).
@@ -652,40 +558,6 @@ BẮT BUỘC TRẢ VỀ ĐỊNH DẠNG JSON DUY NHẤT theo cấu trúc sau:
   "suggestedCTAs": [
     "Các mẫu CTA chuyển đổi cao nhất được đúc kết từ video đối thủ"
   ]
-}`,
-  },
-  offer: {
-    name: 'Nhánh 4 - Quảng cáo & Lời chào hàng (Offer & Ads Intelligence)',
-    systemPrompt: `Bạn là Chuyên gia Thiết kế Lời chào hàng không thể từ chối (Grand Slam Offer & Direct Response Copywriting theo phong cách Alex Hormozi).
-Bóc tách các quảng cáo, landing page, combo giá và bằng chứng uy tín (social proof) của thị trường.
-Trả về JSON:
-{
-  "summary": "Nhận định về mức độ cạnh tranh của các Offer hiện có trên thị trường",
-  "marketPromises": [{"promise": "Lời hứa thương hiệu", "frequency": "Phổ biến / Mới xuất hiện", "credibility": "Độ tin cậy"}],
-  "pricingAndDiscounts": "Khoảng giá phổ biến và hình thức ưu đãi thường gặp",
-  "socialProofs": ["Các loại bằng chứng uy tín đang được dùng (Review, Bác sĩ/Chuyên gia, Trước & Sau...)"],
-  "improvedOfferIdea": {
-    "coreOffer": "Gợi ý gói sản phẩm/dịch vụ nâng cấp để đè bẹp đối thủ",
-    "bonuses": ["Quà tặng kèm giải quyết rào cản phụ"],
-    "riskReversal": "Cam kết bảo hành/đảo ngược rủi ro cực mạnh",
-    "urgencyScarcity": "Lý do phải mua ngay hôm nay"
-  }
-}`,
-  },
-  framing: {
-    name: 'Tầng 1 - Định khung đề bài & Phân loại thông tin',
-    systemPrompt: `Bạn là Chuyên gia Tư vấn Chiến lược Kinh doanh & Marketing.
-Dựa trên đề bài và bối cảnh doanh nghiệp cung cấp, hãy phân loại và tinh chỉnh bài toán nghiên cứu thành 3 nhóm:
-1. Đã xác định (Dữ liệu vững chắc)
-2. Giả thuyết ban đầu (Cần kiểm chứng)
-3. Chưa biết (Chuyển hóa thành các câu hỏi nghiên cứu trọng tâm có thể đo lường).
-Trả về JSON:
-{
-  "clarifiedGoal": "Mục tiêu quyết định cốt lõi",
-  "solidFacts": ["Những điểm đã có dữ liệu rõ ràng"],
-  "hypotheses": ["Những giả định cần kiểm chứng"],
-  "criticalQuestions": ["Top câu hỏi nghiên cứu bắt buộc phải giải quyết"],
-  "stoppingConditions": "Điều kiện dừng nghiên cứu để tránh mất thời gian"
 }`,
   },
   strategy: {

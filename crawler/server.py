@@ -13,15 +13,15 @@ import math
 import os
 import re
 import sys
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
 import lxml.html
 import yt_dlp
 from fastapi import FastAPI, HTTPException
 from playwright.async_api import async_playwright
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 from crawl4ai import (
@@ -110,23 +110,11 @@ class SearchReq(BaseModel):
     limit: int = Field(10, ge=1, le=20)
 
 
-_URL_RE = re.compile(r"^(https?://|raw:)")
-
-
 class CrawlReq(BaseModel):
-    urls: list[str] = Field(min_length=1, max_length=20)
+    urls: list[Annotated[str, Field(pattern=r"^(https?://|raw:)")]] = Field(min_length=1, max_length=20)
     query: str | None = None
-    filter: Literal["fit", "bm25", "llm"] = "fit"
+    filter: Literal["fit", "bm25"] = "fit"
     profile: str | None = Field(default=None, pattern=_SAFE_NAME)
-    llm: LLMIn | None = None
-
-    @field_validator("urls")
-    @classmethod
-    def _urls_http_or_raw(cls, v: list[str]) -> list[str]:
-        for u in v:
-            if not _URL_RE.match(u):
-                raise ValueError(f"URL không hợp lệ (chỉ nhận http(s) hoặc raw:): {u}")
-        return v
 
 
 class ResearchContext(BaseModel):
@@ -220,12 +208,7 @@ _MD_PREFIX_RE = re.compile(r"^[\s\-*+#>]+")
 
 def _paragraphs(md: str) -> list[str]:
     """Split markdown into lines with bullets/#/>/whitespace stripped, keeping only lines >= 40 chars."""
-    out = []
-    for line in md.splitlines():
-        cleaned = _MD_PREFIX_RE.sub("", line).strip()
-        if len(cleaned) >= 40:
-            out.append(cleaned)
-    return out
+    return [cleaned for line in md.splitlines() if len(cleaned := _MD_PREFIX_RE.sub("", line).strip()) >= 40]
 
 
 def _batch_items(texts: list[str], budget: int) -> list[list[int]]:
@@ -267,13 +250,12 @@ async def _select_relevant(
             "dùng', CHỈ giữ mục đáp ứng đúng yêu cầu đó. Trả về JSON {\"keep\": [chỉ số]} không giải thích."
         )
         try:
-            if deadline is not None:
-                now = asyncio.get_running_loop().time()
-                parsed = await asyncio.wait_for(_ask_json(llm_config, prompt), timeout=max(5, deadline - now))
-            else:
-                parsed = await _ask_json(llm_config, prompt)
+            parsed = await asyncio.wait_for(
+                _ask_json(llm_config, prompt),
+                None if deadline is None else max(5, deadline - asyncio.get_running_loop().time()),
+            )
             for i in parsed.get("keep") or []:
-                if isinstance(i, (int, str)) and str(i).lstrip("-").isdigit() and int(i) in batch:
+                if str(i).isdigit() and int(i) in batch:
                     kept_idx.add(int(i))
         except Exception as e:
             print("AI filter batch failed:", repr(e)[:800], file=sys.stderr)
@@ -417,7 +399,7 @@ def _verbatim(items: list[dict], page_text: str) -> list[dict]:
     out = []
     for it in items:
         text = _WS_RE.sub(" ", (it.get("text") or "")).strip().lower()
-        if text and text[: min(40, len(text))] in norm_page:
+        if text and text[:40] in norm_page:
             out.append(it)
     return out
 
@@ -580,18 +562,14 @@ def _fb_blob_to_json(blob: str) -> list:
     blob = _FB_FOR_LOOP_GUARD_RE.sub("", blob or "", count=1).strip()
     if not blob:
         return []
-    try:
+    with suppress(Exception):
         return [json.loads(blob)]
-    except Exception:
-        pass
     out = []
     for line in blob.splitlines():
         line = line.strip()
         if line.startswith("{"):
-            try:
+            with suppress(Exception):
                 out.append(json.loads(line))
-            except Exception:
-                continue
     return out
 
 
@@ -633,11 +611,8 @@ def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict
     story + comments inside it (or not inside any story) are kept, other stories on the same page
     (home feed behind the modal) are dropped; target=None (group feed/search) keeps everything."""
     posts: dict = {}
-    post_order: list = []
     comments: dict = {}
-    comment_order: list = []
     comment_story: dict = {}
-    target_found = False
     target_pid = None
     expected: int | None = None
 
@@ -650,15 +625,13 @@ def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict
         return isinstance(url, str) and str(target) in url
 
     def walk(node, story_id):
-        nonlocal target_found, expected, target_pid
+        nonlocal expected, target_pid
         if isinstance(node, dict):
             pid, actors = node.get("post_id"), node.get("actors")
             if pid is not None and isinstance(actors, list) and actors and isinstance(actors[0], dict):
                 story_id = pid
-                if is_target(node, pid):
-                    target_found = True
-                    if target_pid is None:
-                        target_pid = pid
+                if target_pid is None and is_target(node, pid):
+                    target_pid = pid
                 if pid not in posts:
                     posts[pid] = {
                         "author": actors[0].get("name") or "",
@@ -667,7 +640,6 @@ def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict
                         "time": _fb_iso(node.get("creation_time")),
                         "kind": "post",
                     }
-                    post_order.append(pid)
 
             body, author = node.get("body"), node.get("author")
             ctime, cid = node.get("created_time"), node.get("id")
@@ -684,7 +656,6 @@ def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict
                     "kind": "comment",
                 }
                 comment_story[cid] = story_id
-                comment_order.append(cid)
 
             c = node.get("comments")
             if target_pid is not None and story_id == target_pid and isinstance(c, dict) and isinstance(c.get("total_count"), int):
@@ -701,13 +672,14 @@ def _fb_items_from_json(blobs: list[str], target: str | None) -> tuple[list[dict
             walk(obj, None)
 
     if target is None:
-        kept_posts = [posts[pid] for pid in post_order]
-        kept_comments = [comments[cid] for cid in comment_order]
-    else:
-        kept_posts = [posts[pid] for pid in post_order if pid == target_pid]
-        kept_comments = [comments[cid] for cid in comment_order if comment_story[cid] in (target_pid, None)]
+        return [*posts.values(), *comments.values()], expected, False
 
-    return kept_posts + kept_comments, expected, target_found
+    return (
+        ([posts[target_pid]] if target_pid is not None else [])
+        + [c for cid, c in comments.items() if comment_story[cid] in (target_pid, None)],
+        expected,
+        target_pid is not None,
+    )
 
 
 async def _fb_gql_hook(page, context=None, config=None, **_kwargs):
@@ -767,12 +739,10 @@ async def comments(req: CommentsReq):
         # facebook.com/share/g/<code>/ (the app's Share button) only redirects inside a real browser
         # (plain HTTP -> 400), so resolve it first or the group keyword search below gets skipped.
         if llm_config and not group_id and urlparse(req.url).path.startswith("/share/"):
-            try:
+            with suppress(Exception):
                 async with crawler_for(req.profile) as c:
                     r = await c.arun(req.url, config=CrawlerRunConfig(cache_mode=CacheMode.BYPASS, page_timeout=30000))
                 group_id = _fb_group_id(r.redirected_url or "")
-            except Exception:
-                pass
 
         # Focused + group + AI available: ask a few short, natural-language search keywords a group
         # member would actually write, then harvest each keyword's search results page instead of
@@ -961,7 +931,7 @@ async def research(req: ResearchReq):
         queries = [fallback]
         keywords = [fallback]
 
-    bm25_query = " ".join(keywords) or (queries[0] if queries else "")
+    bm25_query = " ".join(keywords) or queries[0]
 
     # Cap each platform's own list at per_platform before concatenating, so e.g. web+youtube
     # doesn't let web (first in req.platforms) crowd out youtube once truncated to maxSources.
@@ -987,7 +957,6 @@ async def research(req: ResearchReq):
         sources.extend(platform_sources)
     sources = sources[: req.maxSources]
 
-    has_fb_profile = os.path.isdir(os.path.join(get_home_folder(), "profiles", "facebook"))
     sem = asyncio.Semaphore(3)
 
     async def _fill(source: dict):
@@ -1005,7 +974,7 @@ async def research(req: ResearchReq):
                             CommentsReq(
                                 url=source["url"],
                                 max=100,
-                                profile="facebook" if (source["platform"] == "facebook" and has_fb_profile) else None,
+                                profile="facebook" if source["platform"] == "facebook" else None,
                                 llm=req.llm,
                             )
                         ),
@@ -1133,14 +1102,10 @@ async def profiles_create(req: ProfileReq):
                 if any(c["name"] == "c_user" and "facebook.com" in c["domain"] for c in cookies):
                     logged_in = True
                     break
-                try:
+                with suppress(asyncio.TimeoutError):
                     await asyncio.wait_for(closed.wait(), timeout=2)
-                except asyncio.TimeoutError:
-                    pass
             if logged_in:
                 await asyncio.sleep(3)  # give Chrome time to flush the cookie to disk
-            try:
+            with suppress(Exception):
                 await ctx.close()
-            except Exception:
-                pass
         return {"profile": req.name, "path": profile_dir, "loggedIn": logged_in}

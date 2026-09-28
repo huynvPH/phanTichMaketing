@@ -3,13 +3,12 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import { YoutubeTranscript } from 'youtube-transcript';
-import { testAIConnection, callAI, fetchProviderModels, getDefaultModels, PROMPT_TEMPLATES } from './aiService.js';
+import { testAIConnection, callAI, fetchProviderModels, PROMPT_TEMPLATES } from './aiService.js';
 import { testNotionConnection, listNotionTargets, createNotionResearchPage } from './notionService.js';
-import { callCrawler } from './crawlerService.js';
 
-dotenv.config();
+// Biến môi trường đã set từ trước (VD: trên Vercel) phải luôn thắng; thiếu file .env thì im lặng bỏ qua.
+try { process.loadEnvFile(); } catch {}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,15 +50,6 @@ function loadConfig() {
   };
 }
 
-// Helper: Lưu cấu hình cục bộ (chỉ ghi khi không ở môi trường serverless readonly)
-function saveConfig(config) {
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
-  } catch (e) {
-    console.warn('Không thể ghi config.json (môi trường Vercel):', e.message);
-  }
-}
-
 // Helper: Đọc client keys gửi từ trình duyệt (cho Vercel / serverless)
 function getClientKeys(req) {
   if (req.headers['x-client-keys']) {
@@ -92,25 +82,17 @@ function safeParseJson(raw) {
     let truncated = cleaned.slice(firstBrace).trim();
     truncated = truncated.replace(/,\s*$/, '');
     
-    let openBraces = (truncated.match(/\{/g) || []).length;
-    let closeBraces = (truncated.match(/\}/g) || []).length;
-    let openBrackets = (truncated.match(/\[/g) || []).length;
-    let closeBrackets = (truncated.match(/\]/g) || []).length;
+    const openBraces = (truncated.match(/\{/g) || []).length;
+    const closeBraces = (truncated.match(/\}/g) || []).length;
+    const openBrackets = (truncated.match(/\[/g) || []).length;
+    const closeBrackets = (truncated.match(/\]/g) || []).length;
 
     // Đóng ngoặc kép nếu chuỗi đang bị dở
     const quotes = (truncated.match(/(?<!\\)"/g) || []).length;
-    if (quotes % 2 !== 0) {
-      truncated += '"';
-    }
+    if (quotes % 2 !== 0) truncated += '"';
 
-    while (openBrackets > closeBrackets) {
-      truncated += ']';
-      closeBrackets++;
-    }
-    while (openBraces > closeBraces) {
-      truncated += '}';
-      closeBraces++;
-    }
+    truncated += ']'.repeat(Math.max(0, openBrackets - closeBrackets));
+    truncated += '}'.repeat(Math.max(0, openBraces - closeBraces));
 
     try {
       return JSON.parse(truncated);
@@ -161,44 +143,18 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', (req, res) => {
   try {
     const current = loadConfig();
-    const {
-      openaiApiKey,
-      anthropicApiKey,
-      geminiApiKey,
-      openrouterApiKey,
-      openrouterModel,
-      nineRouterApiKey,
-      nineRouterBaseUrl,
-      nineRouterModel,
-      localBaseUrl,
-      localModel,
-      notionToken,
-      notionParentId,
-      notionParentType,
-      defaultProvider,
-      defaultModel,
-    } = req.body;
-
     const updated = {
       ...current,
-      ...(openaiApiKey !== undefined && { openaiApiKey }),
-      ...(anthropicApiKey !== undefined && { anthropicApiKey }),
-      ...(geminiApiKey !== undefined && { geminiApiKey }),
-      ...(openrouterApiKey !== undefined && { openrouterApiKey }),
-      ...(openrouterModel !== undefined && { openrouterModel }),
-      ...(nineRouterApiKey !== undefined && { nineRouterApiKey }),
-      ...(nineRouterBaseUrl !== undefined && { nineRouterBaseUrl }),
-      ...(nineRouterModel !== undefined && { nineRouterModel }),
-      ...(localBaseUrl !== undefined && { localBaseUrl }),
-      ...(localModel !== undefined && { localModel }),
-      ...(notionToken !== undefined && { notionToken }),
-      ...(notionParentId !== undefined && { notionParentId }),
-      ...(notionParentType !== undefined && { notionParentType }),
-      ...(defaultProvider !== undefined && { defaultProvider }),
-      ...(defaultModel !== undefined && { defaultModel }),
+      ...Object.fromEntries(Object.keys(current).filter(k => req.body[k] !== undefined).map(k => [k, req.body[k]])),
     };
 
-    saveConfig(updated);
+    // Lưu cấu hình cục bộ (chỉ ghi khi không ở môi trường serverless readonly)
+    try {
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(updated, null, 2), 'utf8');
+    } catch (e) {
+      console.warn('Không thể ghi config.json (môi trường Vercel):', e.message);
+    }
+
     res.json({ success: true, message: 'Đã lưu cấu hình API thành công!' });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -244,26 +200,11 @@ app.post('/api/test-connection', async (req, res) => {
 // 3.1 API: Lấy danh sách models động từ Provider
 app.post('/api/ai/models', async (req, res) => {
   try {
-    const { provider, apiKey, customBaseUrl } = req.body;
-    const cfg = loadConfig();
-    const ck = getClientKeys(req);
+    const { provider } = req.body;
+    if (!provider) return res.json({ success: true, provider, models: [] });
 
-    let key = apiKey;
-    let targetUrl = customBaseUrl;
-    if (!key) {
-      if (provider === 'gemini') key = ck.geminiApiKey || cfg.geminiApiKey;
-      else if (provider === 'openai') key = ck.openaiApiKey || cfg.openaiApiKey;
-      else if (provider === 'claude') key = ck.anthropicApiKey || cfg.anthropicApiKey;
-      else if (provider === 'openrouter') key = ck.openrouterApiKey || cfg.openrouterApiKey;
-      else if (provider === '9router') {
-        key = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
-        targetUrl = targetUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
-      } else if (provider === 'local') {
-        targetUrl = targetUrl || ck.localBaseUrl || cfg.localBaseUrl || 'http://localhost:11434/v1';
-      }
-    }
-
-    const models = await fetchProviderModels(provider, key, targetUrl);
+    const { apiKey, baseUrl } = resolveProviderAuth(req, provider);
+    const models = await fetchProviderModels(provider, apiKey, baseUrl);
     res.json({ success: true, provider, models });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -284,8 +225,8 @@ app.get('/api/notion/targets', async (req, res) => {
 
 // Helper: Phân giải provider/API key/baseUrl dùng chung cho /api/ai/analyze và /api/crawl/:action.
 // Trả về `error` (string) khi thiếu key, không throw — /api/crawl/:action cần gọi tiếp kể cả thiếu key.
-function resolveProviderAuth(req, provider, model) {
-  const cfg = loadConfig();
+// `cfg` là tham số tùy chọn để caller đã loadConfig() từ trước không phải đọc lại config.json.
+function resolveProviderAuth(req, provider, model, cfg = loadConfig()) {
   const ck = getClientKeys(req);
   let activeProvider = provider;
   if (!activeProvider) {
@@ -297,7 +238,7 @@ function resolveProviderAuth(req, provider, model) {
     else if (model?.startsWith('ag/')) activeProvider = '9router';
     else if (model?.includes('/')) activeProvider = 'openrouter';
     else if (model === 'local-model') activeProvider = 'local';
-    else activeProvider = cfg.defaultProvider || 'gemini';
+    else activeProvider = cfg.defaultProvider;
   }
   let apiKey = req.body.apiKey || '';
   let targetBaseUrl = req.body.customBaseUrl;
@@ -308,8 +249,8 @@ function resolveProviderAuth(req, provider, model) {
     else if (activeProvider === 'gemini') apiKey = ck.geminiApiKey || cfg.geminiApiKey;
     else if (activeProvider === 'openrouter') apiKey = ck.openrouterApiKey || cfg.openrouterApiKey;
     else if (activeProvider === '9router') {
-      apiKey = ck.nineRouterApiKey || cfg.nineRouterApiKey || '';
-      targetBaseUrl = targetBaseUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl || 'http://localhost:20128/v1';
+      apiKey = ck.nineRouterApiKey || cfg.nineRouterApiKey;
+      targetBaseUrl = targetBaseUrl || ck.nineRouterBaseUrl || cfg.nineRouterBaseUrl;
     }
     else if (activeProvider === 'local') {
       apiKey = 'local';
@@ -339,7 +280,7 @@ app.post('/api/ai/analyze', async (req, res) => {
     } = req.body;
 
     const cfg = loadConfig();
-    const { provider: activeProvider, apiKey, baseUrl: targetBaseUrl, error: authError } = resolveProviderAuth(req, req.body.provider, model);
+    const { provider: activeProvider, apiKey, baseUrl: targetBaseUrl, error: authError } = resolveProviderAuth(req, req.body.provider, model, cfg);
     if (authError) return res.status(400).json({ success: false, error: authError });
 
     const template = PROMPT_TEMPLATES[moduleType] || PROMPT_TEMPLATES.voc;
@@ -359,13 +300,7 @@ ${typeof rawData === 'string' ? rawData : JSON.stringify(rawData, null, 2)}
 Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực tế và trả về đúng định dạng JSON như quy định.
 `;
 
-    const activeModel =
-      model ||
-      (activeProvider === 'openrouter'
-        ? cfg.openrouterModel
-        : activeProvider === 'local'
-        ? cfg.localModel
-        : undefined);
+    const activeModel = model || { openrouter: cfg.openrouterModel, local: cfg.localModel }[activeProvider];
 
     const rawResponse = await callAI({
       provider: activeProvider,
@@ -394,6 +329,25 @@ Hãy bóc tách thật sắc bén, chuẩn xác, dựa trên dữ liệu thực 
   }
 });
 
+// Helper: Trích xuất Video ID từ nhiều định dạng URL YouTube (watch?v=, youtu.be/, shorts, hoặc ID trần 11 ký tự).
+// Dùng chung cho /api/competitor/parse-links và /api/competitor/fetch-transcript.
+function ytId(url) {
+  if (url.includes('youtube.com/shorts/')) {
+    const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+  if (url.includes('watch?v=') || url.includes('&v=')) {
+    const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+  if (url.includes('youtu.be/')) {
+    const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+    return m ? m[1] : null;
+  }
+  if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+  return null;
+}
+
 // 5.1 API: Phân tích & trích xuất metadata từ danh sách links/kênh video đối thủ
 app.post('/api/competitor/parse-links', (req, res) => {
   try {
@@ -416,16 +370,12 @@ app.post('/api/competitor/parse-links', (req, res) => {
         if (!url.includes('/video/')) type = 'channel';
       } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
         platform = 'YouTube';
-        if (url.includes('/shorts/')) {
-          const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
-          if (m) id = m[1];
+        const extractedId = ytId(url);
+        if (url.includes('youtube.com/shorts/')) {
           type = 'shorts';
-        } else if (url.includes('watch?v=') || url.includes('&v=')) {
-          const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
-          if (m) id = m[1];
-        } else if (url.includes('youtu.be/')) {
-          const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-          if (m) id = m[1];
+          if (extractedId) id = extractedId;
+        } else if (extractedId) {
+          id = extractedId;
         } else if (url.includes('/@')) {
           type = 'channel';
           const u = url.match(/@([a-zA-Z0-9_.-]+)/);
@@ -475,21 +425,7 @@ app.post('/api/competitor/fetch-transcript', async (req, res) => {
 
     for (const rawUrl of linkList) {
       const url = rawUrl.trim();
-      let videoId = null;
-
-      // Trích xuất video ID từ nhiều định dạng URL YouTube
-      if (url.includes('youtube.com/shorts/')) {
-        const m = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
-        if (m) videoId = m[1];
-      } else if (url.includes('watch?v=') || url.includes('&v=')) {
-        const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
-        if (m) videoId = m[1];
-      } else if (url.includes('youtu.be/')) {
-        const m = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
-        if (m) videoId = m[1];
-      } else if (/^[a-zA-Z0-9_-]{11}$/.test(url)) {
-        videoId = url;
-      }
+      const videoId = ytId(url);
 
       if (!videoId) {
         results.push({
@@ -504,48 +440,53 @@ app.post('/api/competitor/fetch-transcript', async (req, res) => {
         continue;
       }
 
-      // 1. Lấy thông tin tiêu đề qua oEmbed
-      let title = `Video ${videoId}`;
-      let author = 'Đối thủ';
-      try {
-        const oembedRes = await fetch(
-          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
-        );
-        if (oembedRes.ok) {
-          const oembedData = await oembedRes.json();
-          if (oembedData.title) title = oembedData.title;
-          if (oembedData.author_name) author = oembedData.author_name;
-        }
-      } catch {}
+      // 1&2. Lấy tiêu đề (oEmbed) và transcript song song cho mỗi video (vẫn xử lý tuần tự giữa các video)
+      const [{ title, author }, { transcript: transcriptText, status, message }] = await Promise.all([
+        (async () => {
+          let title = `Video ${videoId}`;
+          let author = 'Đối thủ';
+          try {
+            const oembedRes = await fetch(
+              `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+            );
+            if (oembedRes.ok) {
+              const oembedData = await oembedRes.json();
+              if (oembedData.title) title = oembedData.title;
+              if (oembedData.author_name) author = oembedData.author_name;
+            }
+          } catch {}
+          return { title, author };
+        })(),
+        (async () => {
+          let transcriptText = '';
+          let status = 'success';
+          let message = 'Lấy phụ đề thành công';
+          try {
+            // Thử tiếng Việt trước
+            let transcriptItems = [];
+            try {
+              transcriptItems = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'vi' });
+            } catch {
+              // Thử ngôn ngữ mặc định (Anh hoặc auto)
+              transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+            }
 
-      // 2. Lấy transcript/phụ đề
-      let transcriptText = '';
-      let status = 'success';
-      let message = 'Lấy phụ đề thành công';
-
-      try {
-        // Thử tiếng Việt trước
-        let transcriptItems = [];
-        try {
-          transcriptItems = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'vi' });
-        } catch {
-          // Thử ngôn ngữ mặc định (Anh hoặc auto)
-          transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
-        }
-
-        if (Array.isArray(transcriptItems) && transcriptItems.length > 0) {
-          transcriptText = transcriptItems
-            .map((item) => item.text?.trim())
-            .filter(Boolean)
-            .join(' ');
-        } else {
-          status = 'no_transcript';
-          message = 'Video không có phụ đề hoặc phụ đề bị tắt.';
-        }
-      } catch (err) {
-        status = 'error';
-        message = `Không lấy được transcript (${err.message || 'Phụ đề không khả dụng'})`;
-      }
+            if (Array.isArray(transcriptItems) && transcriptItems.length > 0) {
+              transcriptText = transcriptItems
+                .map((item) => item.text?.trim())
+                .filter(Boolean)
+                .join(' ');
+            } else {
+              status = 'no_transcript';
+              message = 'Video không có phụ đề hoặc phụ đề bị tắt.';
+            }
+          } catch (err) {
+            status = 'error';
+            message = `Không lấy được transcript (${err.message || 'Phụ đề không khả dụng'})`;
+          }
+          return { transcript: transcriptText, status, message };
+        })(),
+      ]);
 
       results.push({
         url,
@@ -583,12 +524,12 @@ app.post('/api/competitor/fetch-transcript', async (req, res) => {
 // 6. API: Xuất dữ liệu sang Notion
 app.post('/api/notion/sync', async (req, res) => {
   try {
-    const { targetId, targetType, title, moduleName, rawData, analysisJson } = req.body;
+    const { targetId, targetType, title, moduleName, analysisJson } = req.body;
     const cfg = loadConfig();
     const ck = getClientKeys(req);
     const token = req.body.notionToken || ck.notionToken || cfg.notionToken;
     const parentId = targetId || ck.notionParentId || cfg.notionParentId;
-    const parentType = targetType || ck.notionParentType || cfg.notionParentType || 'page';
+    const parentType = targetType || ck.notionParentType || cfg.notionParentType;
 
     if (!token) {
       return res.status(400).json({ success: false, error: 'Chưa cấu hình Notion Token' });
@@ -606,7 +547,6 @@ app.post('/api/notion/sync', async (req, res) => {
       parentType,
       title,
       moduleName,
-      rawData,
       analysisJson,
     });
 
@@ -617,14 +557,37 @@ app.post('/api/notion/sync', async (req, res) => {
   }
 });
 
-// 7. API: Proxy sang crawler nội bộ (crawler/server.py) — search / crawl / comments / research / tạo profile trình duyệt
+// 7. API: Proxy sang crawler nội bộ (crawler/server.py) — crawl / comments / research / tạo profile trình duyệt
 const CRAWL_ACTIONS = {
-  search: '/search',
   crawl: '/crawl',
   comments: '/comments',
   research: '/research',
   'profiles-create': '/profiles/create',
 };
+
+// Gọi sang crawler nội bộ (crawler/server.py, FastAPI). Đọc process.env.CRAWLER_URL trong hàm (không
+// phải hằng số top-level) để không bị đọc trước khi process.loadEnvFile() nạp xong.
+async function callCrawler(path, body) {
+  const base = process.env.CRAWLER_URL || 'http://127.0.0.1:11235';
+  let res;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    if (err.cause?.code === 'ECONNREFUSED') {
+      throw new Error('Crawler chưa chạy — hãy chạy `npm run dev:crawler` (hoặc `npm run dev`)');
+    }
+    throw new Error(`Crawler phản hồi quá lâu hoặc mất kết nối (${err.cause?.code || err.message})`);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw Object.assign(new Error(typeof data.detail === 'string' ? data.detail : data.detail?.[0]?.msg || `Crawler lỗi ${res.status}`), { status: res.status });
+  }
+  return data;
+}
 
 app.post('/api/crawl/:action', async (req, res) => {
   req.body ??= {}; // Express 5: không có body JSON thì req.body là undefined

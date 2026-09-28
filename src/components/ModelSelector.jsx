@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Cpu, ChevronDown, Check, Zap, Server, Cloud, RefreshCw, Search, PlusCircle } from 'lucide-react';
 import { readLS, writeLS } from '../utils/projectManager';
 
@@ -37,7 +37,7 @@ export function mergeDynamicModels(newList) {
   return merged;
 }
 
-export default function ModelSelector({ currentModel, onModelChange, direction = 'down', fullWidth = false }) {
+export default function ModelSelector({ currentModel, onModelChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [customModelId, setCustomModelId] = useState('');
@@ -91,10 +91,8 @@ export default function ModelSelector({ currentModel, onModelChange, direction =
     if (found) return found;
     // If not found in presets, create dynamic representation
     return {
-      id: currentModel,
       name: currentModel,
       tag: 'Tùy chỉnh',
-      provider: currentModel.startsWith('gemini') ? 'gemini' : currentModel.startsWith('ag/') ? '9router' : 'custom',
     };
   }, [allModels, currentModel]);
 
@@ -114,32 +112,27 @@ export default function ModelSelector({ currentModel, onModelChange, direction =
   // Handle Refresh: Scan providers for new models
   const handleRefreshModels = async () => {
     setIsRefreshing(true);
-    try {
-      const providersToScan = ['gemini', '9router'];
-      const newDiscovered = [];
+    const providersToScan = ['gemini', '9router'];
+    const newDiscovered = [];
 
-      for (const prov of providersToScan) {
-        try {
-          const res = await fetch('/api/ai/models', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: prov }),
-          });
-          const data = await res.json();
-          if (data.success && Array.isArray(data.models)) {
-            newDiscovered.push(...data.models);
-          }
-        } catch {}
-      }
-
-      if (newDiscovered.length > 0) {
-        setDynamicModels(mergeDynamicModels(newDiscovered));
-      }
-    } catch (e) {
-      console.warn('Lỗi làm mới models:', e);
-    } finally {
-      setIsRefreshing(false);
+    for (const prov of providersToScan) {
+      try {
+        const res = await fetch('/api/ai/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: prov }),
+        });
+        const data = await res.json();
+        if (data.success && Array.isArray(data.models)) {
+          newDiscovered.push(...data.models);
+        }
+      } catch {}
     }
+
+    if (newDiscovered.length > 0) {
+      setDynamicModels(mergeDynamicModels(newDiscovered));
+    }
+    setIsRefreshing(false);
   };
 
   // Add custom model ID manually
@@ -172,14 +165,12 @@ export default function ModelSelector({ currentModel, onModelChange, direction =
   };
 
   return (
-    <div className={`relative ${fullWidth ? 'w-full' : ''}`} ref={dropdownRef}>
+    <div className="relative" ref={dropdownRef}>
       {/* Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`h-9 flex items-center justify-between gap-2 px-3 rounded-lg border text-[13px] font-medium cursor-pointer transition-colors ${
-          fullWidth ? 'w-full' : ''
-        } ${
           isOpen
             ? 'bg-zinc-100 border-zinc-400 text-zinc-950'
             : 'bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300 text-zinc-800'
@@ -205,7 +196,7 @@ export default function ModelSelector({ currentModel, onModelChange, direction =
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className={`absolute ${direction === 'up' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'} left-0 w-80 rounded-xl bg-white border border-zinc-200 shadow-xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95`}>
+        <div className="absolute top-full mt-1.5 left-0 w-80 rounded-xl bg-white border border-zinc-200 shadow-xl py-1.5 z-50 text-xs animate-in fade-in zoom-in-95">
           {/* Header & Refresh */}
           <div className="px-3 py-1.5 border-b border-slate-100 flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
