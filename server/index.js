@@ -574,7 +574,13 @@ const CRAWL_ACTIONS = {
 // Gọi sang crawler nội bộ (crawler/server.py, FastAPI). Đọc process.env.CRAWLER_URL trong hàm (không
 // phải hằng số top-level) để không bị đọc trước khi process.loadEnvFile() nạp xong.
 async function callCrawler(path, body) {
-  const base = process.env.CRAWLER_URL || 'http://127.0.0.1:11235';
+  let rawBase = (process.env.CRAWLER_URL || 'http://127.0.0.1:11235').trim().replace(/^["']|["']$/g, '');
+  if (!rawBase) rawBase = 'http://127.0.0.1:11235';
+  if (!rawBase.startsWith('http://') && !rawBase.startsWith('https://')) {
+    rawBase = `https://${rawBase}`;
+  }
+  const base = rawBase.replace(/\/+$/, '');
+
   let res;
   try {
     res = await fetch(`${base}${path}`, {
@@ -583,10 +589,13 @@ async function callCrawler(path, body) {
       body: JSON.stringify(body),
     });
   } catch (err) {
-    if (err.cause?.code === 'ECONNREFUSED') {
-      throw new Error('Crawler chưa chạy — hãy chạy `npm run dev:crawler` (hoặc `npm run dev`)');
+    if (err.cause?.code === 'ECONNREFUSED' || err.code === 'ECONNREFUSED') {
+      throw new Error(`Crawler tại ${base} chưa chạy hoặc từ chối kết nối`);
     }
-    throw new Error(`Crawler phản hồi quá lâu hoặc mất kết nối (${err.cause?.code || err.message})`);
+    if (err.code === 'ERR_INVALID_URL' || err.message?.includes('Invalid URL')) {
+      throw new Error(`Đường dẫn CRAWLER_URL không hợp lệ: "${process.env.CRAWLER_URL}". Hãy kiểm tra lại biến môi trường trên Vercel.`);
+    }
+    throw new Error(`Crawler (${base}) phản hồi quá lâu hoặc mất kết nối: ${err.message}`);
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
