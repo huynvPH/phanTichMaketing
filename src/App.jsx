@@ -22,6 +22,10 @@ import {
 export default function App() {
   const [showWelcome, setShowWelcome] = useState(() => {
     try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('welcome') === '1' || window.location.hash === '#welcome') {
+        return true;
+      }
       return localStorage.getItem('marketing_has_seen_welcome') !== 'true';
     } catch {
       return true;
