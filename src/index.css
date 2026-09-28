@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light;
@@ -10,20 +12,20 @@
 
 .btn-brand,
 button.btn-brand {
-  background-color: #18181b !important;
-  color: #ffffff !important;
+  background-color: var(--color-zinc-900) !important;
+  color: var(--color-white) !important;
 }
 
 .btn-brand:hover:not(:disabled),
 button.btn-brand:hover:not(:disabled) {
-  background-color: #09090b !important;
+  background-color: var(--color-zinc-950) !important;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: #ffffff;
-  color: #09090b;
+  background-color: var(--color-white);
+  color: var(--color-zinc-950);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -37,34 +39,139 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e4e4e7;
+  background: var(--color-zinc-200);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1aa;
+  background: var(--color-zinc-400);
 }
 
 /* Clean SaaS Cards & Tables */
 .clean-card {
-  background: #ffffff;
-  border: 1px solid #e4e4e7;
+  background: var(--color-white);
+  border: 1px solid var(--color-zinc-200);
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 .clean-card:hover {
-  border-color: #d4d4d8;
+  border-color: var(--color-zinc-300);
 }
 
 .clean-input {
-  background-color: #ffffff;
-  border: 1px solid #e4e4e7;
-  color: #09090b;
+  background-color: var(--color-white);
+  border: 1px solid var(--color-zinc-200);
+  color: var(--color-zinc-950);
   transition: all 0.15s ease;
 }
 
 .clean-input:focus {
-  border-color: #18181b;
-  box-shadow: 0 0 0 1px #18181b;
+  border-color: var(--color-zinc-900);
+  box-shadow: 0 0 0 1px var(--color-zinc-900);
   outline: none;
+}
+
+/*
+ * ponytail: dark mode = coarse global inversion of Tailwind color CSS variables
+ * (zinc/slate remapped to one neutral dark scale, accent colors derived via
+ * color-mix), not per-component `dark:` utility classes. Ceiling: individual
+ * components can't be fine-tuned independently and low-usage color/shade
+ * combos may look flat or low-contrast. Upgrade path: add targeted `dark:`
+ * utilities (now wired via @custom-variant above) on the specific component
+ * that needs finer control, without touching this global remap.
+ */
+.dark {
+  color-scheme: dark;
+  --color-white: #121214;
+
+  --color-zinc-50: #0a0a0b;
+  --color-zinc-100: #1c1c1f;
+  --color-zinc-200: #27272a;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-400: #71717a;
+  --color-zinc-500: #a1a1aa;
+  --color-zinc-600: #d4d4d8;
+  --color-zinc-700: #e4e4e7;
+  --color-zinc-800: #f4f4f5;
+  --color-zinc-900: #fafafa;
+  --color-zinc-950: #ffffff;
+
+  --color-slate-50: #0a0a0b;
+  --color-slate-100: #1c1c1f;
+  --color-slate-200: #27272a;
+  --color-slate-300: #3f3f46;
+  --color-slate-400: #71717a;
+  --color-slate-500: #a1a1aa;
+  --color-slate-600: #d4d4d8;
+  --color-slate-700: #e4e4e7;
+  --color-slate-800: #f4f4f5;
+  --color-slate-900: #fafafa;
+  --color-slate-950: #ffffff;
+
+  --color-indigo-50: color-mix(in oklab, var(--color-indigo-500) 10%, #121214);
+  --color-indigo-100: color-mix(in oklab, var(--color-indigo-500) 18%, #121214);
+  --color-indigo-200: color-mix(in oklab, var(--color-indigo-500) 30%, #121214);
+  --color-indigo-700: var(--color-indigo-300);
+  --color-indigo-800: color-mix(in oklab, var(--color-indigo-300) 70%, #fff);
+  --color-indigo-900: color-mix(in oklab, var(--color-indigo-300) 50%, #fff);
+
+  --color-emerald-50: color-mix(in oklab, var(--color-emerald-500) 10%, #121214);
+  --color-emerald-100: color-mix(in oklab, var(--color-emerald-500) 18%, #121214);
+  --color-emerald-200: color-mix(in oklab, var(--color-emerald-500) 30%, #121214);
+  --color-emerald-700: var(--color-emerald-300);
+  --color-emerald-800: color-mix(in oklab, var(--color-emerald-300) 70%, #fff);
+  --color-emerald-900: color-mix(in oklab, var(--color-emerald-300) 50%, #fff);
+
+  --color-amber-50: color-mix(in oklab, var(--color-amber-500) 10%, #121214);
+  --color-amber-100: color-mix(in oklab, var(--color-amber-500) 18%, #121214);
+  --color-amber-200: color-mix(in oklab, var(--color-amber-500) 30%, #121214);
+  --color-amber-700: var(--color-amber-300);
+  --color-amber-800: color-mix(in oklab, var(--color-amber-300) 70%, #fff);
+  --color-amber-900: color-mix(in oklab, var(--color-amber-300) 50%, #fff);
+
+  --color-rose-50: color-mix(in oklab, var(--color-rose-500) 10%, #121214);
+  --color-rose-100: color-mix(in oklab, var(--color-rose-500) 18%, #121214);
+  --color-rose-200: color-mix(in oklab, var(--color-rose-500) 30%, #121214);
+  --color-rose-700: var(--color-rose-300);
+  --color-rose-800: color-mix(in oklab, var(--color-rose-300) 70%, #fff);
+  --color-rose-900: color-mix(in oklab, var(--color-rose-300) 50%, #fff);
+
+  --color-red-50: color-mix(in oklab, var(--color-red-500) 10%, #121214);
+  --color-red-100: color-mix(in oklab, var(--color-red-500) 18%, #121214);
+  --color-red-200: color-mix(in oklab, var(--color-red-500) 30%, #121214);
+  --color-red-700: var(--color-red-300);
+  --color-red-800: color-mix(in oklab, var(--color-red-300) 70%, #fff);
+  --color-red-900: color-mix(in oklab, var(--color-red-300) 50%, #fff);
+
+  --color-purple-50: color-mix(in oklab, var(--color-purple-500) 10%, #121214);
+  --color-purple-100: color-mix(in oklab, var(--color-purple-500) 18%, #121214);
+  --color-purple-200: color-mix(in oklab, var(--color-purple-500) 30%, #121214);
+  --color-purple-700: var(--color-purple-300);
+  --color-purple-800: color-mix(in oklab, var(--color-purple-300) 70%, #fff);
+  --color-purple-900: color-mix(in oklab, var(--color-purple-300) 50%, #fff);
+
+  --color-sky-50: color-mix(in oklab, var(--color-sky-500) 10%, #121214);
+  --color-sky-100: color-mix(in oklab, var(--color-sky-500) 18%, #121214);
+  --color-sky-200: color-mix(in oklab, var(--color-sky-500) 30%, #121214);
+  --color-sky-700: var(--color-sky-300);
+  --color-sky-800: color-mix(in oklab, var(--color-sky-300) 70%, #fff);
+  --color-sky-900: color-mix(in oklab, var(--color-sky-300) 50%, #fff);
+
+  --color-blue-50: color-mix(in oklab, var(--color-blue-500) 10%, #121214);
+  --color-blue-100: color-mix(in oklab, var(--color-blue-500) 18%, #121214);
+  --color-blue-200: color-mix(in oklab, var(--color-blue-500) 30%, #121214);
+  --color-blue-700: var(--color-blue-300);
+  --color-blue-800: color-mix(in oklab, var(--color-blue-300) 70%, #fff);
+  --color-blue-900: color-mix(in oklab, var(--color-blue-300) 50%, #fff);
+}
+
+/* Solid colored buttons (text-white on a -600/-500 bg) need real white text
+   and their original -700 hover shade restored, since --color-white and the
+   accent -700 vars above are remapped for surface/text use elsewhere. */
+.dark :is(.bg-indigo-600, .bg-sky-600, .bg-emerald-600, .bg-amber-600, .bg-rose-600, .bg-red-600, .bg-purple-600, .bg-blue-600, .bg-indigo-500, .bg-emerald-500, .bg-rose-500) {
+  --color-white: #fff;
+  --color-indigo-700: oklch(45.7% 0.24 277.023);
+  --color-sky-700: oklch(50% 0.134 242.749);
+  --color-emerald-700: oklch(50.8% 0.118 165.612);
+  --color-amber-700: oklch(55.5% 0.163 48.998);
 }
 

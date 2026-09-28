@@ -34,6 +34,43 @@ export default function App() {
       localStorage.setItem('marketing_selected_model', modelId);
     } catch {}
   };
+  const [themeMode, setThemeMode] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_theme') || 'system';
+    } catch {
+      return 'system';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('marketing_theme', themeMode);
+    } catch {}
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      document.documentElement.classList.toggle('dark', themeMode === 'dark' || (themeMode === 'system' && mq.matches));
+    };
+    apply();
+    if (themeMode === 'system') {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+  }, [themeMode]);
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    try {
+      return localStorage.getItem('marketing_sidebar_open') !== '0';
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('marketing_sidebar_open', isSidebarOpen ? '1' : '0');
+    } catch {}
+  }, [isSidebarOpen]);
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotionSyncOpen, setIsNotionSyncOpen] = useState(false);
   const [exportData, setExportData] = useState(null);
@@ -233,22 +270,29 @@ export default function App() {
   return (
     <div className="h-screen bg-white text-zinc-900 flex antialiased overflow-hidden font-sans">
       {/* Left Sidebar - Spans full height from top */}
-      <Sidebar 
-        activeTab={activeTab} 
-        onSelectTab={setActiveTab} 
-      />
+      {isSidebarOpen && (
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          themeMode={themeMode}
+          onThemeChange={setThemeMode}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+      )}
 
       {/* Right Column: Topbar Breadcrumb + Main View */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-[#fafafa]">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-zinc-50">
         {/* Top Header Breadcrumb Bar - Aligned with Sidebar logo on the same row */}
         <Header
           activeProjectName={activeProjectName}
           onOpenProjectSelector={() => setIsProjectSelectorOpen(true)}
           activeTabTitle={TAB_TITLES[activeTab] || 'Nghiên Cứu'}
+          isSidebarOpen={isSidebarOpen}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
         />
 
         {/* Content Area */}
-        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0 bg-[#fafafa]">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 min-h-0 bg-zinc-50">
           {activeTab === 'all_in_one' && (
             <ExecutiveResearchView
               currentModel={currentModel}

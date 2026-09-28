@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Compass, 
   Layers, 
@@ -67,12 +67,13 @@ export const TAB_GROUPS = [
   },
 ];
 
-export default function Sidebar({ 
-  activeTab, 
-  onSelectTab
+export default function Sidebar({
+  activeTab,
+  onSelectTab,
+  themeMode,
+  onThemeChange,
+  onClose
 }) {
-  const [themeMode, setThemeMode] = useState('system'); // 'system' | 'light' | 'dark'
-
   return (
     <aside className="w-64 h-full bg-white border-r border-zinc-200/80 flex flex-col justify-between shrink-0 select-none sticky top-0 self-stretch z-20">
       <div className="flex flex-col min-h-0 flex-1">
@@ -157,35 +158,43 @@ export default function Sidebar({
           <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60">
             <button
               type="button"
-              onClick={() => setThemeMode('system')}
+              onClick={() => onThemeChange('system')}
               className={`p-1 rounded-md transition-colors ${themeMode === 'system' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="System"
+              title="Theo hệ thống"
+              aria-label="Theo hệ thống"
+              aria-pressed={themeMode === 'system'}
             >
               <Monitor className="h-3.5 w-3.5 stroke-[1.8]" />
             </button>
             <button
               type="button"
-              onClick={() => setThemeMode('light')}
+              onClick={() => onThemeChange('light')}
               className={`p-1 rounded-md transition-colors ${themeMode === 'light' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="Light"
+              title="Sáng"
+              aria-label="Sáng"
+              aria-pressed={themeMode === 'light'}
             >
               <Sun className="h-3.5 w-3.5 stroke-[1.8]" />
             </button>
             <button
               type="button"
-              onClick={() => setThemeMode('dark')}
+              onClick={() => onThemeChange('dark')}
               className={`p-1 rounded-md transition-colors ${themeMode === 'dark' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="Dark"
+              title="Tối"
+              aria-label="Tối"
+              aria-pressed={themeMode === 'dark'}
             >
               <Moon className="h-3.5 w-3.5 stroke-[1.8]" />
             </button>
           </div>
 
           {/* Collapse sidebar toggle icon */}
-          <button 
+          <button
             type="button"
+            onClick={onClose}
             className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
             title="Đóng thanh bên"
+            aria-label="Đóng thanh bên"
           >
             <PanelLeftClose className="h-4 w-4 stroke-[1.8]" />
           </button>

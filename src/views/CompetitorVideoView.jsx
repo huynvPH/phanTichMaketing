@@ -482,11 +482,8 @@ export default function CompetitorVideoView({
         </div>
 
         {/* Bottom Form Actions */}
-        <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
-          <span className="text-xs text-zinc-400 hidden sm:inline">
-            * Tự động trích xuất transcript, bóc tách Visual Hook 3s đầu và gợi ý góc khai thác mới.
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
+        <div className="pt-4 border-t border-zinc-100 flex items-center justify-end">
+          <div className="flex items-center gap-2">
             {(linksText || scriptsText || directAnalysisText || result) && (
               <button
                 onClick={handleReset}

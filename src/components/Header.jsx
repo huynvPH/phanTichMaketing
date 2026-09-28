@@ -1,10 +1,12 @@
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, PanelLeftOpen } from 'lucide-react';
 
-export default function Header({ 
+export default function Header({
   activeProjectName,
   onOpenProjectSelector,
-  activeTabTitle
+  activeTabTitle,
+  isSidebarOpen,
+  onOpenSidebar
 }) {
   const initial = (activeProjectName || 'Marketing Hub').trim().charAt(0).toUpperCase();
 
@@ -12,6 +14,19 @@ export default function Header({
     <header className="h-14 px-6 bg-white border-b border-zinc-200/80 flex items-center justify-between shrink-0 sticky top-0 z-30">
       {/* Left: Breadcrumb / Workspace Selector */}
       <div className="flex items-center gap-2.5 text-[13px]">
+        {/* Open sidebar toggle icon (shown when sidebar is closed) */}
+        {!isSidebarOpen && (
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="p-1.5 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+            title="Mở thanh bên"
+            aria-label="Mở thanh bên"
+          >
+            <PanelLeftOpen className="h-4 w-4 stroke-[1.8]" />
+          </button>
+        )}
+
         {/* Workspace Pill Trigger */}
         <button
           onClick={onOpenProjectSelector}
