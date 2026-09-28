@@ -1,5 +1,4 @@
-import React from 'react';
-import { 
+import {
   Compass, 
   Layers, 
   CalendarDays, 
@@ -156,36 +155,23 @@ export default function Sidebar({
 
           {/* Theme Selector Pill */}
           <div className="flex items-center bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60">
-            <button
-              type="button"
-              onClick={() => onThemeChange('system')}
-              className={`p-1 rounded-md transition-colors ${themeMode === 'system' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="Theo hệ thống"
-              aria-label="Theo hệ thống"
-              aria-pressed={themeMode === 'system'}
-            >
-              <Monitor className="h-3.5 w-3.5 stroke-[1.8]" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onThemeChange('light')}
-              className={`p-1 rounded-md transition-colors ${themeMode === 'light' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="Sáng"
-              aria-label="Sáng"
-              aria-pressed={themeMode === 'light'}
-            >
-              <Sun className="h-3.5 w-3.5 stroke-[1.8]" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onThemeChange('dark')}
-              className={`p-1 rounded-md transition-colors ${themeMode === 'dark' ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
-              title="Tối"
-              aria-label="Tối"
-              aria-pressed={themeMode === 'dark'}
-            >
-              <Moon className="h-3.5 w-3.5 stroke-[1.8]" />
-            </button>
+            {[
+              ['system', Monitor, 'Theo hệ thống'],
+              ['light', Sun, 'Sáng'],
+              ['dark', Moon, 'Tối'],
+            ].map(([value, Icon, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => onThemeChange(value)}
+                className={`p-1 rounded-md transition-colors ${themeMode === value ? 'bg-white text-zinc-950 shadow-2xs' : 'text-zinc-400 hover:text-zinc-700'}`}
+                title={label}
+                aria-label={label}
+                aria-pressed={themeMode === value}
+              >
+                <Icon className="h-3.5 w-3.5 stroke-[1.8]" />
+              </button>
+            ))}
           </div>
 
           {/* Collapse sidebar toggle icon */}

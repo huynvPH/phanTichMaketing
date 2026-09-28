@@ -32,7 +32,6 @@ from crawl4ai import (
     CrawlerRunConfig,
     DefaultMarkdownGenerator,
     LLMConfig,
-    LLMContentFilter,
     LLMExtractionStrategy,
     MemoryAdaptiveDispatcher,
     PruningContentFilter,
@@ -50,14 +49,8 @@ _shared_crawler: AsyncWebCrawler | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _shared_crawler
-    crawler = AsyncWebCrawler(config=BrowserConfig(headless=True, verbose=False))
-    await crawler.start()
-    _shared_crawler = crawler
-    try:
+    async with AsyncWebCrawler(config=BrowserConfig(headless=True, verbose=False)) as _shared_crawler:
         yield
-    finally:
-        await crawler.close()
-        _shared_crawler = None
 
 
 app = FastAPI(lifespan=lifespan)
@@ -364,17 +357,7 @@ async def search(req: SearchReq):
 
 @app.post("/crawl")
 async def crawl(req: CrawlReq):
-    if req.filter == "fit":
-        content_filter = PruningContentFilter()
-    elif req.filter == "bm25":
-        content_filter = BM25ContentFilter(user_query=req.query or "")
-    else:
-        if req.llm is None:
-            raise HTTPException(400, "Cần cấu hình AI (llm) khi dùng filter='llm'.")
-        content_filter = LLMContentFilter(
-            llm_config=to_llm_config(req.llm),
-            instruction="Keep only user comments, reviews, feedback and opinions; drop navigation, ads, boilerplate.",
-        )
+    content_filter = PruningContentFilter() if req.filter == "fit" else BM25ContentFilter(user_query=req.query or "")
 
     cfg = CrawlerRunConfig(
         cache_mode=CacheMode.BYPASS,

@@ -243,9 +243,6 @@ export default function CrawlPanel({ currentModel, context, onAppend }) {
             <Sparkles className="w-3.5 h-3.5 text-zinc-700" />
             Công cụ AI tự động thu thập Feedback (VoC)
           </span>
-          <p className="text-[11px] text-zinc-500 mt-0.5">
-            Chọn phương thức để AI quét và tổng hợp phản hồi khách hàng đưa vào ô VoC bên dưới
-          </p>
         </div>
 
         {/* Segmented Mode Selector Tabs */}

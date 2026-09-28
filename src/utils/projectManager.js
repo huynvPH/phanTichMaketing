@@ -60,9 +60,17 @@ function initDefaultProjectIfEmpty() {
       researchContext: readLS('marketing_research_context', EMPTY_PROJECT_DATA),
       strategyData: readLS('marketing_brand_strategy', null),
       calendarData: readLS('marketing_content_calendar', null),
-      executiveForm: readLS('marketing_executive_form', null),
     });
   }
+}
+
+// Dữ liệu rỗng mặc định cho 1 project data blob (dùng khi chưa tồn tại)
+function emptyProjectData() {
+  return {
+    researchContext: EMPTY_PROJECT_DATA,
+    strategyData: null,
+    calendarData: null,
+  };
 }
 
 // Lấy danh sách tất cả dự án
@@ -86,12 +94,7 @@ export function setActiveProjectId(id) {
 export function getProjectData(projectId) {
   initDefaultProjectIfEmpty();
   const id = projectId || getActiveProjectId();
-  return readLS(`${PROJECT_DATA_PREFIX}${id}`, {
-    researchContext: EMPTY_PROJECT_DATA,
-    strategyData: null,
-    calendarData: null,
-    executiveForm: null,
-  });
+  return readLS(`${PROJECT_DATA_PREFIX}${id}`, emptyProjectData());
 }
 
 // Lưu dữ liệu cho 1 dự án
@@ -120,12 +123,7 @@ export function createProject(name, initialData = null) {
   list.push(newProject);
   writeLS(STORAGE_KEY_PROJECTS, list);
   writeLS(STORAGE_KEY_ACTIVE_ID, newId);
-  writeLS(`${PROJECT_DATA_PREFIX}${newId}`, initialData || {
-    researchContext: EMPTY_PROJECT_DATA,
-    strategyData: null,
-    calendarData: null,
-    executiveForm: null,
-  });
+  writeLS(`${PROJECT_DATA_PREFIX}${newId}`, initialData || emptyProjectData());
   return newProject;
 }
 
@@ -161,6 +159,18 @@ export function deleteProject(id) {
     return updatedList[0].id;
   }
   return currentActive;
+}
+
+// Gọi POST JSON, ném lỗi nếu response !success, trả về data khi thành công
+export async function postJSON(url, body, fallbackError) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || fallbackError);
+  return data;
 }
 
 // Gọi API lấy danh sách Trang/Database Notion được cấp quyền

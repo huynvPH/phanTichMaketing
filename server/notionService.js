@@ -1,5 +1,14 @@
 import { Client } from '@notionhq/client';
 
+// Helpers dựng block Notion (rút gọn các literal lặp lại bên dưới)
+const rt = (content, annotations) => ({ type: 'text', text: { content }, ...(annotations && { annotations }) });
+const block = (type, rich_text, extra) => ({ object: 'block', type, [type]: { rich_text, ...extra } });
+const h2 = (text) => block('heading_2', [rt(text)]);
+const para = (text) => block('paragraph', [rt(text)]);
+const callout = (text, emoji, color) => block('callout', [rt(text)], { icon: { emoji }, color });
+const bullet = (rich_text) => block('bulleted_list_item', rich_text);
+const section = (arr, title, fn) => (arr?.length ? [h2(title), ...arr.map(fn)] : []);
+
 export async function testNotionConnection(token) {
   try {
     const notion = new Client({ auth: token });
@@ -68,62 +77,20 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
     analysisJson?.clarifiedGoal;
 
   const childrenBlocks = [
-    {
-      object: 'block',
-      type: 'callout',
-      callout: {
-        rich_text: [
-          {
-            type: 'text',
-            text: {
-              content: `Báo cáo: ${moduleName || 'Marketing Research'} | Thời gian tạo: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`,
-            },
-          },
-        ],
-        icon: { emoji: '📊' },
-        color: 'blue_background',
-      },
-    },
+    callout(
+      `Báo cáo: ${moduleName || 'Marketing Research'} | Thời gian tạo: ${new Date().toLocaleDateString('vi-VN')} ${new Date().toLocaleTimeString('vi-VN')}`,
+      '📊',
+      'blue_background'
+    ),
   ];
 
   if (summaryText) {
-    childrenBlocks.push(
-      {
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '1. Tóm tắt cốt lõi (Executive Summary)' } }],
-        },
-      },
-      {
-        object: 'block',
-        type: 'paragraph',
-        paragraph: {
-          rich_text: [
-            {
-              type: 'text',
-              text: { content: String(summaryText).slice(0, 1800) },
-            },
-          ],
-        },
-      }
-    );
+    childrenBlocks.push(h2('1. Tóm tắt cốt lõi (Executive Summary)'), para(String(summaryText).slice(0, 1800)));
   }
 
   // 1. Nếu là Lịch Nội Dung (Content Calendar)
   if (analysisJson?.posts && Array.isArray(analysisJson.posts)) {
-    childrenBlocks.push({
-      object: 'block',
-      type: 'heading_2',
-      heading_2: {
-        rich_text: [
-          {
-            type: 'text',
-            text: { content: `2. Lịch Nội Dung Kênh ${analysisJson.channel || ''} (${analysisJson.period || ''})` },
-          },
-        ],
-      },
-    });
+    childrenBlocks.push(h2(`2. Lịch Nội Dung Kênh ${analysisJson.channel || ''} (${analysisJson.period || ''})`));
 
     analysisJson.posts.forEach((post) => {
       const trace = post.traceableInsight || {};
@@ -145,246 +112,82 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
         postContent += `🎯 CTA: ${post.callToAction}`;
       }
 
-      childrenBlocks.push({
-        object: 'block',
-        type: 'callout',
-        callout: {
-          rich_text: [{ type: 'text', text: { content: postContent.slice(0, 1900) } }],
-          icon: { emoji: '📅' },
-          color: 'gray_background',
-        },
-      });
+      childrenBlocks.push(callout(postContent.slice(0, 1900), '📅', 'gray_background'));
     });
   }
 
   // 2. Nếu là VoC (Tiếng nói khách hàng)
   if (analysisJson?.painPoints || analysisJson?.objections) {
-    if (analysisJson.painPoints?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '2. Nỗi đau & Rào cản của khách hàng (Pain Points)' } }],
-        },
-      });
-      analysisJson.painPoints.forEach((p) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `[${p.level || 'Ưu tiên'}] ${p.pain}: ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: p.quote ? `"${p.quote}"` : '' }, annotations: { italic: true } },
-            ],
-          },
-        });
-      });
-    }
-
-    if (analysisJson.objections?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '3. Rào cản & Nỗi sợ khiến khách hàng ngập ngừng' } }],
-        },
-      });
-      analysisJson.objections.forEach((o) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `${o.objection}: ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: o.quote ? `"${o.quote}"` : '' }, annotations: { italic: true } },
-            ],
-          },
-        });
-      });
-    }
-
-    if (analysisJson.marketingHooks?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '4. Gợi ý Hook truyền thông từ ngôn từ khách hàng' } }],
-        },
-      });
-      analysisJson.marketingHooks.forEach((h) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'quote',
-          quote: {
-            rich_text: [{ type: 'text', text: { content: String(h).slice(0, 1800) } }],
-          },
-        });
-      });
-    }
+    childrenBlocks.push(
+      ...section(analysisJson.painPoints, '2. Nỗi đau & Rào cản của khách hàng (Pain Points)', (p) =>
+        bullet([
+          rt(`[${p.level || 'Ưu tiên'}] ${p.pain}: `, { bold: true }),
+          rt(p.quote ? `"${p.quote}"` : '', { italic: true }),
+        ])
+      ),
+      ...section(analysisJson.objections, '3. Rào cản & Nỗi sợ khiến khách hàng ngập ngừng', (o) =>
+        bullet([rt(`${o.objection}: `, { bold: true }), rt(o.quote ? `"${o.quote}"` : '', { italic: true })])
+      ),
+      ...section(analysisJson.marketingHooks, '4. Gợi ý Hook truyền thông từ ngôn từ khách hàng', (h) =>
+        block('quote', [rt(String(h).slice(0, 1800))])
+      )
+    );
   }
 
   // 3. Nếu là Search Demand (Nhu cầu tìm kiếm)
-  if (analysisJson?.intentClusters?.length) {
-    childrenBlocks.push({
-      object: 'block',
-      type: 'heading_2',
-      heading_2: {
-        rich_text: [{ type: 'text', text: { content: '2. Phân nhóm Ý định tìm kiếm & Hành trình mua' } }],
-      },
-    });
-    analysisJson.intentClusters.forEach((c) => {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: {
-          rich_text: [
-            { type: 'text', text: { content: `${c.theme} [${c.stage} | ${c.searchIntent}]: ` }, annotations: { bold: true } },
-            { type: 'text', text: { content: `Gợi ý định dạng: ${c.recommendedContent || ''}` } },
-          ],
-        },
-      });
-    });
-  }
+  childrenBlocks.push(
+    ...section(analysisJson?.intentClusters, '2. Phân nhóm Ý định tìm kiếm & Hành trình mua', (c) =>
+      bullet([
+        rt(`${c.theme} [${c.stage} | ${c.searchIntent}]: `, { bold: true }),
+        rt(`Gợi ý định dạng: ${c.recommendedContent || ''}`),
+      ])
+    )
+  );
 
   // 4. Nếu là Competitor (Nội dung đối thủ)
   if (analysisJson?.winningFormats || analysisJson?.saturatedThemes) {
-    if (analysisJson.winningFormats?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '2. Định dạng chiến thắng (Winning Formats) cần học hỏi' } }],
-        },
-      });
-      analysisJson.winningFormats.forEach((wf) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `${wf.format}: ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: `${wf.reason} | Hook: ${wf.hookStyle || ''}` } },
-            ],
-          },
-        });
-      });
-    }
-
-    if (analysisJson.saturatedThemes?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '3. Cảnh báo chủ đề đã bão hòa (Cần tránh/đổi góc)' } }],
-        },
-      });
-      analysisJson.saturatedThemes.forEach((st) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `${st.theme}: ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: st.warning || '' } },
-            ],
-          },
-        });
-      });
-    }
+    childrenBlocks.push(
+      ...section(analysisJson.winningFormats, '2. Định dạng chiến thắng (Winning Formats) cần học hỏi', (wf) =>
+        bullet([rt(`${wf.format}: `, { bold: true }), rt(`${wf.reason} | Hook: ${wf.hookStyle || ''}`)])
+      ),
+      ...section(analysisJson.saturatedThemes, '3. Cảnh báo chủ đề đã bão hòa (Cần tránh/đổi góc)', (st) =>
+        bullet([rt(`${st.theme}: `, { bold: true }), rt(st.warning || '')])
+      )
+    );
   }
 
   // 5. Nếu là Offer & Quảng cáo
   if (analysisJson?.improvedOfferIdea) {
-    childrenBlocks.push({
-      object: 'block',
-      type: 'heading_2',
-      heading_2: {
-        rich_text: [{ type: 'text', text: { content: '2. Chiến lược Offer vượt trội đề xuất' } }],
-      },
-    });
+    childrenBlocks.push(h2('2. Chiến lược Offer vượt trội đề xuất'));
     const offer = analysisJson.improvedOfferIdea;
     if (offer.coreOffer) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'callout',
-        callout: {
-          rich_text: [{ type: 'text', text: { content: `Gói cốt lõi: ${offer.coreOffer}` } }],
-          icon: { emoji: '💎' },
-          color: 'green_background',
-        },
-      });
+      childrenBlocks.push(callout(`Gói cốt lõi: ${offer.coreOffer}`, '💎', 'green_background'));
     }
     if (offer.riskReversal) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'bulleted_list_item',
-        bulleted_list_item: {
-          rich_text: [
-            { type: 'text', text: { content: 'Đảo ngược rủi ro/Cam kết: ' }, annotations: { bold: true } },
-            { type: 'text', text: { content: offer.riskReversal } },
-          ],
-        },
-      });
+      childrenBlocks.push(bullet([rt('Đảo ngược rủi ro/Cam kết: ', { bold: true }), rt(offer.riskReversal)]));
     }
   }
 
   // 6. Nếu là Content Strategy (Chiến lược nội dung)
   if (analysisJson?.contentPillars || analysisJson?.brandSummary) {
     if (analysisJson.brandSummary) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'callout',
-        callout: {
-          rich_text: [{ type: 'text', text: { content: `🎯 Định vị nội dung: ${analysisJson.brandSummary}` } }],
-          icon: { emoji: '💡' },
-          color: 'purple_background',
-        },
-      });
+      childrenBlocks.push(callout(`🎯 Định vị nội dung: ${analysisJson.brandSummary}`, '💡', 'purple_background'));
     }
 
-    if (analysisJson.contentPillars?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '2. Các Trụ Cột Nội Dung Cốt Lõi (Content Pillars)' } }],
-        },
-      });
-      analysisJson.contentPillars.forEach((p) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `[${p.id || 'Pillar'}] ${p.name} (${p.ratioPercent || 0}%): ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: `${p.objective || ''} | Insight: ${p.targetInsight || ''}` } },
-            ],
-          },
-        });
-      });
-    }
-
-    if (analysisJson.channelRoles?.length) {
-      childrenBlocks.push({
-        object: 'block',
-        type: 'heading_2',
-        heading_2: {
-          rich_text: [{ type: 'text', text: { content: '3. Phân Vai Trò Theo Kênh' } }],
-        },
-      });
-      analysisJson.channelRoles.forEach((cr) => {
-        childrenBlocks.push({
-          object: 'block',
-          type: 'bulleted_list_item',
-          bulleted_list_item: {
-            rich_text: [
-              { type: 'text', text: { content: `${cr.channel} (${cr.postingFrequency || ''}): ` }, annotations: { bold: true } },
-              { type: 'text', text: { content: `${cr.role} | Định dạng: ${cr.primaryFormats?.join(', ') || ''}` } },
-            ],
-          },
-        });
-      });
-    }
+    childrenBlocks.push(
+      ...section(analysisJson.contentPillars, '2. Các Trụ Cột Nội Dung Cốt Lõi (Content Pillars)', (p) =>
+        bullet([
+          rt(`[${p.id || 'Pillar'}] ${p.name} (${p.ratioPercent || 0}%): `, { bold: true }),
+          rt(`${p.objective || ''} | Insight: ${p.targetInsight || ''}`),
+        ])
+      ),
+      ...section(analysisJson.channelRoles, '3. Phân Vai Trò Theo Kênh', (cr) =>
+        bullet([
+          rt(`${cr.channel} (${cr.postingFrequency || ''}): `, { bold: true }),
+          rt(`${cr.role} | Định dạng: ${cr.primaryFormats?.join(', ') || ''}`),
+        ])
+      )
+    );
   }
 
   // Tạo trang: Tương thích cả parent là Database lẫn Page
@@ -419,19 +222,14 @@ export async function createNotionResearchPage({ token, parentId, parentType, ti
   }
 
   // Đẩy tiếp toàn bộ các block còn lại theo từng đợt 90 block (vượt qua giới hạn 100 block/request của Notion)
-  if (childrenBlocks.length > 90) {
-    const remaining = childrenBlocks.slice(90);
-    const BATCH_SIZE = 90;
-    for (let i = 0; i < remaining.length; i += BATCH_SIZE) {
-      const chunk = remaining.slice(i, i + BATCH_SIZE);
-      try {
-        await notion.blocks.children.append({
-          block_id: newPage.id,
-          children: chunk,
-        });
-      } catch (appendErr) {
-        console.warn(`Lỗi khi nối thêm block vào Notion (đợt ${Math.floor(i / BATCH_SIZE) + 2}):`, appendErr.message);
-      }
+  for (let i = 90; i < childrenBlocks.length; i += 90) {
+    try {
+      await notion.blocks.children.append({
+        block_id: newPage.id,
+        children: childrenBlocks.slice(i, i + 90),
+      });
+    } catch (appendErr) {
+      console.warn(`Lỗi khi nối thêm block vào Notion (đợt ${Math.floor(i / 90) + 1}):`, appendErr.message);
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { 
   FolderGit2, 
   Plus, 
@@ -29,7 +29,6 @@ export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
   const [newProjectName, setNewProjectName] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
   const refreshList = () => {
@@ -39,7 +38,6 @@ export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
 
   const handleSelect = (id) => {
     setActiveProjectId(id);
-    setActiveId(id);
     onProjectSwitched?.(id);
     onClose();
   };
@@ -47,15 +45,10 @@ export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
   const handleCreate = (e) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
-    try {
-      const created = createProject(newProjectName.trim());
-      setNewProjectName('');
-      refreshList();
-      onProjectSwitched?.(created.id);
-      onClose();
-    } catch (err) {
-      setErrorMsg(err.message);
-    }
+    const created = createProject(newProjectName.trim());
+    setNewProjectName('');
+    onProjectSwitched?.(created.id);
+    onClose();
   };
 
   const handleStartRename = (proj, e) => {
@@ -94,27 +87,20 @@ export default function ProjectSelectorModal({ onClose, onProjectSwitched }) {
     exportProjectToFile(id);
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result;
-        if (typeof content === 'string') {
-          const imported = importProjectFromFile(content);
-          refreshList();
-          onProjectSwitched?.(imported.id);
-          alert(`Đã nhập thành công dự án: "${imported.name}"!`);
-          onClose();
-        }
-      } catch (err) {
-        alert(`Lỗi khi nhập file: ${err.message}`);
-      }
-    };
-    reader.readAsText(file);
     e.target.value = '';
+
+    try {
+      const content = await file.text();
+      const imported = importProjectFromFile(content);
+      onProjectSwitched?.(imported.id);
+      alert(`Đã nhập thành công dự án: "${imported.name}"!`);
+      onClose();
+    } catch (err) {
+      alert(`Lỗi khi nhập file: ${err.message}`);
+    }
   };
 
   return (

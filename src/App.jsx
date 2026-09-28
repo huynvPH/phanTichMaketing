@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
-import Sidebar from './components/Sidebar';
+import Sidebar, { TAB_GROUPS } from './components/Sidebar';
 import SettingsModal from './components/SettingsModal';
 import NotionSyncModal from './components/NotionSyncModal';
 import ProjectSelectorModal from './components/ProjectSelectorModal';
@@ -18,15 +18,18 @@ import {
   EMPTY_PROJECT_DATA
 } from './utils/projectManager';
 
+// Đọc RAW string từ localStorage an toàn (không JSON.parse, khác readLS của projectManager)
+const lsGet = (key, fallback) => {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('all_in_one'); // Mặc định mở Form Tổng Hợp Tầng 1 cho Sếp
-  const [currentModel, setCurrentModel] = useState(() => {
-    try {
-      return localStorage.getItem('marketing_selected_model') || 'gemini-3.6-flash';
-    } catch {
-      return 'gemini-3.6-flash';
-    }
-  });
+  const [currentModel, setCurrentModel] = useState(() => lsGet('marketing_selected_model', 'gemini-3.6-flash'));
 
   const handleModelChange = (modelId) => {
     setCurrentModel(modelId);
@@ -34,13 +37,7 @@ export default function App() {
       localStorage.setItem('marketing_selected_model', modelId);
     } catch {}
   };
-  const [themeMode, setThemeMode] = useState(() => {
-    try {
-      return localStorage.getItem('marketing_theme') || 'system';
-    } catch {
-      return 'system';
-    }
-  });
+  const [themeMode, setThemeMode] = useState(() => lsGet('marketing_theme', 'system'));
 
   useEffect(() => {
     try {
@@ -57,13 +54,7 @@ export default function App() {
     }
   }, [themeMode]);
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-    try {
-      return localStorage.getItem('marketing_sidebar_open') !== '0';
-    } catch {
-      return true;
-    }
-  });
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => lsGet('marketing_sidebar_open', '1') !== '0');
 
   useEffect(() => {
     try {
@@ -87,27 +78,18 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
 
   // Shared research context & strategy across all views (nạp theo từng dự án)
-  const [researchContext, setResearchContext] = useState(() => {
-    const projData = getProjectData(getActiveProjectId());
-    return projData.researchContext || EMPTY_PROJECT_DATA;
-  });
-
-  const [strategyData, setStrategyData] = useState(() => {
-    const projData = getProjectData(getActiveProjectId());
-    return projData.strategyData || null;
-  });
-
-  const [calendarData, setCalendarData] = useState(() => {
-    const projData = getProjectData(getActiveProjectId());
-    return projData.calendarData || null;
-  });
+  const [initProjData] = useState(() => getProjectData());
+  const [researchContext, setResearchContext] = useState(() => initProjData.researchContext || EMPTY_PROJECT_DATA);
+  const [strategyData, setStrategyData] = useState(() => initProjData.strategyData || null);
+  const [calendarData, setCalendarData] = useState(() => initProjData.calendarData || null);
 
   const showToast = (msg) => {
     setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage('');
-    }, 4000);
+    setTimeout(() => setToastMessage(''), 4000);
   };
+
+  // Lưu dữ liệu 3 nhánh dùng chung cho dự án đang active, override phần thay đổi qua p
+  const persist = (p) => saveProjectData(activeProjectId, { researchContext, strategyData, calendarData, ...p });
 
   // Chuyển đổi dự án
   const handleProjectSwitched = (newProjId) => {
@@ -162,11 +144,7 @@ export default function App() {
           improvedOfferIdea: analyzed.offer?.improvedOfferIdea,
         },
       };
-      saveProjectData(activeProjectId, {
-        researchContext: updated,
-        strategyData,
-        calendarData,
-      });
+      persist({ researchContext: updated });
       return updated;
     });
     showToast('Đã phân tích và đồng bộ thành công toàn bộ 5 nhánh Tầng 1!');
@@ -175,11 +153,7 @@ export default function App() {
   const handleResetExecutive = () => {
     setResearchContext((prev) => {
       const updated = { ...prev, executive: null };
-      saveProjectData(activeProjectId, {
-        researchContext: updated,
-        strategyData,
-        calendarData,
-      });
+      persist({ researchContext: updated });
       return updated;
     });
   };
@@ -191,11 +165,7 @@ export default function App() {
         competitorVideo: analyzed,
         competitor: analyzed,
       };
-      saveProjectData(activeProjectId, {
-        researchContext: updated,
-        strategyData,
-        calendarData,
-      });
+      persist({ researchContext: updated });
       return updated;
     });
     showToast('Đã lưu dữ liệu Tình báo Video Đối thủ vào Tầng 1 và đồng bộ sang Chiến lược!');
@@ -203,21 +173,13 @@ export default function App() {
 
   const handleSaveStrategy = (newStrategy) => {
     setStrategyData(newStrategy);
-    saveProjectData(activeProjectId, {
-      researchContext,
-      strategyData: newStrategy,
-      calendarData,
-    });
+    persist({ strategyData: newStrategy });
     showToast('Đã cập nhật và lưu Chiến lược Nội dung thành công!');
   };
 
   const handleSaveCalendar = (newCalendar) => {
     setCalendarData(newCalendar);
-    saveProjectData(activeProjectId, {
-      researchContext,
-      strategyData,
-      calendarData: newCalendar,
-    });
+    persist({ calendarData: newCalendar });
     showToast('Đã cập nhật Lịch Nội dung Đa kênh thành công!');
   };
 
@@ -258,14 +220,7 @@ export default function App() {
     setIsNotionSyncOpen(true);
   };
 
-  const TAB_TITLES = {
-    all_in_one: 'Nghiên Cứu Khách Hàng',
-    competitor_videos: 'Tình Báo Video Đối Thủ',
-    strategy: 'Chiến Lược Nội Dung',
-    calendar: 'Lịch Nội Dung Đa Kênh',
-    notion: 'Đồng Bộ Notion',
-    settings: 'Cài Đặt API',
-  };
+  const TAB_TITLES = Object.fromEntries(TAB_GROUPS.flatMap((g) => g.tabs).map((t) => [t.id, t.title]));
 
   return (
     <div className="h-screen bg-white text-zinc-900 flex antialiased overflow-hidden font-sans">
