@@ -16,7 +16,7 @@ import {
 
 export const TAB_GROUPS = [
   {
-    title: 'AGENT',
+    title: 'TẦNG 1: CUSTOMER RESEARCH',
     tabs: [
       {
         id: 'all_in_one',
@@ -31,7 +31,7 @@ export const TAB_GROUPS = [
     ],
   },
   {
-    title: 'STRATEGY',
+    title: 'TẦNG 2: STRATEGY',
     tabs: [
       {
         id: 'strategy',
@@ -41,7 +41,7 @@ export const TAB_GROUPS = [
     ],
   },
   {
-    title: 'WORKFLOW',
+    title: 'TẦNG 3: EXECUTION',
     tabs: [
       {
         id: 'calendar',
@@ -51,7 +51,7 @@ export const TAB_GROUPS = [
     ],
   },
   {
-    title: 'SYSTEM',
+    title: 'HỆ THỐNG',
     tabs: [
       {
         id: 'notion',
