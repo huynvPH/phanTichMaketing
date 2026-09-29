@@ -6,6 +6,9 @@ __pycache__/
 # Production build
 dist/
 
+# Video demo tự sinh (script scripts/record-demo.js)
+demo-videos/
+
 # Local sensitive configuration (API Keys)
 config.json
 .env

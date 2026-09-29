@@ -12,7 +12,8 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT,CRAWLER\" -c \"cyan.bold,magenta.bold,yellow.bold\" \"npm run dev:server\" \"npm run dev:client\" \"npm run dev:crawler\"",
     "setup:crawler": "uv sync --project crawler && uv run --project crawler playwright install chromium",
     "build": "vite build",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "demo:record": "node scripts/record-demo.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
@@ -29,6 +30,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^6.1.1",
     "concurrently": "^10.0.5",
+    "playwright": "^1.63.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.3.0"
   }
